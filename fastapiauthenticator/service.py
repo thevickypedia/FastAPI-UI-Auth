@@ -9,20 +9,18 @@ from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from pyapiauthenticator.fastapi import utils
-from pyapiauthenticator.version import version
+from fastapiauthenticator import utils
+from fastapiauthenticator.version import version
 
 BEARER_AUTH = HTTPBearer()
 
-# todo:
-#  1. Add ability to use via decorator using a context manager
-#  2. Include session management
+# todo: Include session management
 
 
-class FastAPIAuthenticator:
-    """APIAuthenticator is a FastAPI integration that provides authentication for secure routes.
+class Authenticator:
+    """Authenticator is a FastAPI integration that provides authentication for secure routes.
 
-    >>> FastAPIAuthenticator
+    >>> Authenticator
 
     """
 

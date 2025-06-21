@@ -1,3 +1,4 @@
+import os
 import pathlib
 import secrets
 from typing import Dict, List, NoReturn, Union
@@ -7,15 +8,14 @@ from fastapi.exceptions import HTTPException
 from fastapi.logger import logger
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from pyapiauthenticator import secure
-from pyapiauthenticator.fastapi import models
+from fastapiauthenticator import secure, models
 
 BEARER_AUTH = HTTPBearer()
 
 
 def load_template() -> str:
     """Load the HTML template for the login page."""
-    template_path = pathlib.Path(__file__).parent.parent / "templates" / "index.html"
+    template_path = pathlib.Path(__file__).parent / "templates" / "index.html"
     with open(template_path, "r", encoding="utf-8") as file:
         return file.read()
 
@@ -26,11 +26,12 @@ def raise_error(host: str) -> NoReturn:
     Args:
         host: Host header from the request.
     """
+    # todo: fix this to use a counter for failed attempts
     # failed_auth_counter(host)
-    logger.error(
-        "Incorrect username or password: %d",
-        models.ws_session.invalid[host],
-    )
+    # logger.error(
+    #     "Incorrect username or password: %d",
+    #     models.ws_session.invalid[host],
+    # )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Incorrect username or password",
