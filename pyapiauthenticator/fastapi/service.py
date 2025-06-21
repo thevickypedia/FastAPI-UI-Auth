@@ -9,8 +9,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from pyapiauthenticator import version
 from pyapiauthenticator.fastapi import utils
+from pyapiauthenticator.version import version
 
 BEARER_AUTH = HTTPBearer()
 
@@ -19,10 +19,10 @@ BEARER_AUTH = HTTPBearer()
 #  2. Include session management
 
 
-class APIAuthenticator:
+class FastAPIAuthenticator:
     """APIAuthenticator is a FastAPI integration that provides authentication for secure routes.
 
-    >>> APIAuthenticator
+    >>> FastAPIAuthenticator
 
     """
 
@@ -111,24 +111,3 @@ class APIAuthenticator:
             path=self.verify_path, endpoint=self.verify_auth, methods=["GET", "POST"]
         )
         self.app.routes.extend([login_route, verify_route])
-
-
-if __name__ == "__main__":
-
-    def my_secure_function(_: Request) -> HTMLResponse:
-        """A sample secure function that can be used with the APIAuthenticatorException."""
-        return HTMLResponse(
-            content='<html><body style="background-color: gray;color: white"><h1>Authenticated</h1></body></html>',
-            status_code=200,
-        )
-
-    import uvicorn
-
-    application = FastAPI()
-
-    api_authenticator = APIAuthenticator(
-        app=application, secure_function=my_secure_function
-    )
-    api_authenticator.secure()
-
-    uvicorn.run(app=application, port=8000)
