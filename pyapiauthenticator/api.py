@@ -9,7 +9,7 @@ from typing import Dict
 LOGGER = logging.getLogger(__name__)
 HANDLER = logging.StreamHandler()
 FORMATTER = logging.Formatter(
-    fmt='%(asctime)s - %(levelname)s - [%(processName)s:%(module)s:%(lineno)d] - %(funcName)s - %(message)s'
+    fmt="%(asctime)s - %(levelname)s - [%(processName)s:%(module)s:%(lineno)d] - %(funcName)s - %(message)s"
 )
 HANDLER.setFormatter(fmt=FORMATTER)
 LOGGER.addHandler(hdlr=HANDLER)
@@ -32,10 +32,7 @@ class SimpleAPIHandler(SimpleHTTPRequestHandler):
             format (str): A printf-style format string for the log message.
             *args: Variable length argument list to be formatted into the message.
         """
-        LOGGER.info("%s - %s\n" % (
-            self.client_address[0],
-            format % args
-        ))
+        LOGGER.info("%s - %s\n" % (self.client_address[0], format % args))
 
     def set_headers(self, headers: Dict[str, str]) -> None:
         """Set multiple HTTP headers in the response.
@@ -47,14 +44,14 @@ class SimpleAPIHandler(SimpleHTTPRequestHandler):
             self.send_header(key, value)
 
     def set_cookies(
-            self,
-            cookies: Dict[str, str],
-            path: str = "/",
-            domain: str = None,
-            http_only: bool = False,
-            secure: bool = False,
-            max_age: int = 3_600,
-            expires: str | datetime = None
+        self,
+        cookies: Dict[str, str],
+        path: str = "/",
+        domain: str = None,
+        http_only: bool = False,
+        secure: bool = False,
+        max_age: int = 3_600,
+        expires: str | datetime = None,
     ) -> None:
         """Set multiple cookies in the HTTP response.
 
@@ -92,23 +89,20 @@ class SimpleAPIHandler(SimpleHTTPRequestHandler):
 
     def set_defaults(self) -> None:
         """Logs the headers and cookies."""
-        if cookie_header := self.headers.get('Cookie'):
+        if cookie_header := self.headers.get("Cookie"):
             cookies = {}
-            for pair in cookie_header.split(';'):
-                if '=' in pair:
-                    key, value = pair.strip().split('=', 1)
+            for pair in cookie_header.split(";"):
+                if "=" in pair:
+                    key, value = pair.strip().split("=", 1)
                     cookies[key] = value
             LOGGER.debug(cookies)
         LOGGER.debug(dict(self.headers))
 
         self.send_response(200)
         self.set_headers(
-            {
-                'Content-type': 'application/json',
-                'X-Server': 'NoFrameworkServer'
-            }
+            {"Content-type": "application/json", "X-Server": "NoFrameworkServer"}
         )
-        self.set_cookies({'visited': 'true'})
+        self.set_cookies({"visited": "true"})
         self.end_headers()
 
     def do_DELETE(self) -> None:
@@ -124,9 +118,9 @@ class SimpleAPIHandler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         """Handle OPTIONS requests to the server."""
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps({"message": "⚪ OPTIONS received"}).encode())
 
@@ -147,22 +141,22 @@ class SimpleAPIHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         """Handle GET requests to the server."""
-        if self.path == '/':
+        if self.path == "/":
             self.set_defaults()
             self.wfile.write(json.dumps({"message": "🟢 GET received"}).encode())
         else:
             self.send_response(404)
-            self.send_header('Content-type', 'application/json')
+            self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"error": "Not Found"}')
 
 
 # noinspection PyTypeChecker,HttpUrlsUsage
 def run(
-        server_class=HTTPServer,
-        handler_class=SimpleAPIHandler,
-        host: str = '0.0.0.0',
-        port: int = 8080
+    server_class=HTTPServer,
+    handler_class=SimpleAPIHandler,
+    host: str = "0.0.0.0",
+    port: int = 8080,
 ) -> None:
     """Start the HTTP server and listen for incoming requests in synchronous mode.
 
@@ -180,10 +174,10 @@ def run(
 
 # noinspection PyTypeChecker,HttpUrlsUsage
 async def run_async(
-        server_class=HTTPServer,
-        handler_class=SimpleAPIHandler,
-        host: str = '0.0.0.0',
-        port: str = 8080
+    server_class=HTTPServer,
+    handler_class=SimpleAPIHandler,
+    host: str = "0.0.0.0",
+    port: str = 8080,
 ) -> None:
     """Start the HTTP server and listen for incoming requests in asynchronous mode.
 
@@ -201,5 +195,5 @@ async def run_async(
         await loop.run_in_executor(pool, httpd.serve_forever, 0.5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(run_async())

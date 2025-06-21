@@ -1,0 +1,134 @@
+import os
+from typing import Callable, Dict
+
+import jinja2
+from fastapi import FastAPI
+from fastapi.params import Depends
+from fastapi.requests import Request
+from fastapi.responses import HTMLResponse
+from fastapi.routing import APIRoute
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from pyapiauthenticator import version
+from pyapiauthenticator.fastapi import utils
+
+BEARER_AUTH = HTTPBearer()
+
+# todo:
+#  1. Add ability to use via decorator using a context manager
+#  2. Include session management
+
+
+class APIAuthenticator:
+    """APIAuthenticator is a FastAPI integration that provides authentication for secure routes.
+
+    >>> APIAuthenticator
+
+    """
+
+    def __init__(
+        self,
+        app: FastAPI,
+        secure_function: Callable = None,
+        secure_path: str = "/secure",
+        username: str = os.environ.get("USERNAME"),
+        password: str = os.environ.get("PASSWORD"),
+    ):
+        """Initialize the APIAuthenticator with the FastAPI app and secure function.
+
+        Args:
+            app: FastAPI application instance.
+            secure_function: Function to be secured, which will be called after successful authentication.
+            secure_path: API path for the secure function.
+            username: Username for authentication, set via environment variable 'USERNAME'.
+            password: Password for authentication, set via environment variable 'PASSWORD'.
+        """
+        assert all(
+            (username, password)
+        ), "Username and password must be set in environment variables 'USERNAME' and 'PASSWORD'."
+        assert secure_function, "Secure function must be provided."
+        if not secure_path.startswith("/"):
+            secure_path = "/" + secure_path
+
+        self.app = app
+        self.template = utils.load_template()
+        self.secure_function = secure_function
+        self.secure_path = secure_path
+
+        self.username = username
+        self.password = password
+
+        self.login_path: str = "/login"
+        self.verify_path: str = "/verify-login"
+
+    def send_auth(self) -> HTMLResponse:
+        """Render the login page with the verification path and version.
+
+        Returns:
+            HTMLResponse:
+            Rendered HTML response for the login page.
+        """
+        rendered = jinja2.Template(self.template).render(
+            signin=self.verify_path, version=version
+        )
+        return HTMLResponse(content=rendered, status_code=200)
+
+    def verify_auth(
+        self,
+        request: Request,
+        authorization: HTTPAuthorizationCredentials = Depends(BEARER_AUTH),
+    ) -> Dict[str, str]:
+        """Verify the authentication credentials and redirect to the secure route.
+
+        Args:
+            request: Request object containing client information.
+            authorization: Authorization credentials from the request, provided by FastAPI's HTTPBearer.
+
+        Returns:
+            Dict[str, str]:
+            A dictionary containing the redirect URL to the secure path.
+        """
+        utils.verify_login(
+            authorization=authorization,
+            host=request.client.host,
+            env_username=self.username,
+            env_password=self.password,
+        )
+        secure_route = APIRoute(
+            path=self.secure_path,
+            endpoint=self.secure_function,
+            methods=["GET", "POST"],
+        )
+        self.app.routes.append(secure_route)
+        return {"redirect_url": self.secure_path}
+
+    def secure(self) -> None:
+        """Create the login and verification routes for the APIAuthenticator."""
+        login_route = APIRoute(
+            path=self.login_path, endpoint=self.send_auth, methods=["GET"]
+        )
+        verify_route = APIRoute(
+            path=self.verify_path, endpoint=self.verify_auth, methods=["GET", "POST"]
+        )
+        self.app.routes.extend([login_route, verify_route])
+
+
+if __name__ == "__main__":
+
+    def my_secure_function(_: Request) -> HTMLResponse:
+        """A sample secure function that can be used with the APIAuthenticatorException."""
+        return HTMLResponse(
+            content='<html><body style="background-color: gray;color: white"><h1>Authenticated</h1></body></html>',
+            status_code=200,
+        )
+
+    import uvicorn
+
+    application = FastAPI()
+
+    api_authenticator = APIAuthenticator(
+        app=application, secure_function=my_secure_function
+    )
+    api_authenticator.secure()
+
+    uvicorn.run(app=application, port=8000)
