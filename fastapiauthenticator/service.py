@@ -3,8 +3,10 @@ from threading import Timer
 from typing import Callable, Dict, List
 
 from fastapi import FastAPI
+from fastapi.logger import logger
 from fastapi.params import Depends
 from fastapi.requests import Request
+from fastapi.responses import Response
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -66,12 +68,14 @@ class Authenticator:
         self,
         request: Request,
         authorization: HTTPAuthorizationCredentials = Depends(BEARER_AUTH),
+        response: Response = None,
     ) -> Dict[str, str]:
         """Verify the authentication credentials and redirect to the secure route.
 
         Args:
             request: Request object containing client information.
             authorization: Authorization credentials from the request, provided by FastAPI's HTTPBearer.
+            response: Response object containing the response from FastAPI's HTTPBearer.
 
         Returns:
             Dict[str, str]:
@@ -87,15 +91,42 @@ class Authenticator:
             path=self.secure_path,
             endpoint=self.secure_function,
             methods=self.secure_methods,
+            dependencies=[Depends(self.session_check)],
         )
         self.app.routes.append(secure_route)
-        # todo: Logging this might not be a bad idea
+        logger.info("Setting session timeout for %s seconds", self.session_timeout)
         Timer(
             function=self.app.routes.remove,
             args=(secure_route,),
             interval=self.session_timeout,
         ).start()
+        response.set_cookie(
+            key="session_token",
+            value=models.ws_session.client_auth[request.client.host].get("token"),
+            httponly=True,
+            samesite="strict",
+            max_age=self.session_timeout,
+        )
         return {"redirect_url": self.secure_path}
+
+    def session_check(self, request: Request) -> bool:
+        """Check if the session is still valid.
+
+        Args:
+            request: Request object containing client information.
+
+        Raises:
+            HTTPException: If the session is invalid or expired.
+        """
+        if models.ws_session.client_auth[request.client.host].get(
+            "token"
+        ) == request.cookies.get("session_token"):
+            logger.info("Session is valid for host: %s", request.client.host)
+            return True
+        raise models.RedirectException(
+            location=enums.APIEndpoints.session,
+            detail="Session expired or invalid. Please log in again.",
+        )
 
     def secure(self) -> None:
         """Create the login and verification routes for the APIAuthenticator."""

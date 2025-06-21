@@ -58,13 +58,16 @@ def login(request: Request) -> HTMLResponse:
         HTMLResponse:
         Rendered HTML response for the login page.
     """
-    return models.templates.TemplateResponse(
-        name="index.html",
-        context={
-            "request": request,
-            "signin": enums.APIEndpoints.verify_login,
-            "version": f"v{version}",
-        },
+    return clear_session(
+        request,
+        models.templates.TemplateResponse(
+            name="index.html",
+            context={
+                "request": request,
+                "signin": enums.APIEndpoints.verify_login,
+                "version": f"v{version}",
+            },
+        ),
     )
 
 
