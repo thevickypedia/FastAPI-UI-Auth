@@ -11,7 +11,7 @@ app = FastAPI()
 
 def root_page() -> RedirectResponse:
     """Re-direct the user to login page."""
-    return RedirectResponse(url="/login")
+    return RedirectResponse(url=fastapiauthenticator.APIEndpoints.login)
 
 
 def secure_function(_: Request) -> HTMLResponse:

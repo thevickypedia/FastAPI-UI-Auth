@@ -1,4 +1,3 @@
-import os
 import pathlib
 import secrets
 from typing import Dict, List, NoReturn, Union
@@ -6,9 +5,11 @@ from typing import Dict, List, NoReturn, Union
 from fastapi import status
 from fastapi.exceptions import HTTPException
 from fastapi.logger import logger
+from fastapi.requests import Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from fastapiauthenticator import secure, models
+from fastapiauthenticator import enums, models, secure
 
 BEARER_AUTH = HTTPBearer()
 
@@ -20,18 +21,59 @@ def load_template() -> str:
         return file.read()
 
 
+def failed_auth_counter(host: str) -> None:
+    """Keeps track of failed login attempts from each host, and redirects if failed for 3 or more times.
+
+    Args:
+        host: Host header from the request.
+    """
+    try:
+        models.ws_session.invalid[host] += 1
+    except KeyError:
+        models.ws_session.invalid[host] = 1
+    if models.ws_session.invalid[host] >= 3:
+        raise models.RedirectException(location="/error")
+
+
+def redirect_exception_handler(
+    request: Request, exception: models.RedirectException
+) -> JSONResponse:
+    """Custom exception handler to handle redirect.
+
+    Args:
+        request: Takes the ``Request`` object as an argument.
+        exception: Takes the ``RedirectException`` object inherited from ``Exception`` as an argument.
+
+    Returns:
+        JSONResponse:
+        Returns the JSONResponse with content, status code and cookie.
+    """
+    # LOGGER.debug("Exception headers: %s", request.headers)
+    # LOGGER.debug("Exception cookies: %s", request.cookies)
+    if request.url.path == enums.APIEndpoints.login:
+        response = JSONResponse(
+            content={"redirect_url": exception.location}, status_code=200
+        )
+    else:
+        response = RedirectResponse(url=exception.location)
+    if exception.detail:
+        response.set_cookie(
+            "detail", exception.detail.upper(), httponly=True, samesite="strict"
+        )
+    return response
+
+
 def raise_error(host: str) -> NoReturn:
     """Raises a 401 Unauthorized error in case of bad credentials.
 
     Args:
         host: Host header from the request.
     """
-    # todo: fix this to use a counter for failed attempts
-    # failed_auth_counter(host)
-    # logger.error(
-    #     "Incorrect username or password: %d",
-    #     models.ws_session.invalid[host],
-    # )
+    failed_auth_counter(host)
+    logger.error(
+        "Incorrect username or password: %d",
+        models.ws_session.invalid[host],
+    )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Incorrect username or password",

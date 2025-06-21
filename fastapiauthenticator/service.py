@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from fastapiauthenticator import utils
+from fastapiauthenticator import enums, models, utils
 from fastapiauthenticator.version import version
 
 BEARER_AUTH = HTTPBearer()
@@ -53,11 +53,14 @@ class Authenticator:
         self.secure_function = secure_function
         self.secure_path = secure_path
 
+        # noinspection PyTypeChecker
+        self.app.add_exception_handler(
+            exc_class_or_status_code=models.RedirectException,
+            handler=utils.redirect_exception_handler,
+        )
+
         self.username = username
         self.password = password
-
-        self.login_path: str = "/login"
-        self.verify_path: str = "/verify-login"
 
     def send_auth(self) -> HTMLResponse:
         """Render the login page with the verification path and version.
@@ -67,7 +70,7 @@ class Authenticator:
             Rendered HTML response for the login page.
         """
         rendered = jinja2.Template(self.template).render(
-            signin=self.verify_path, version=version
+            signin=enums.APIEndpoints.verify_login, version=version
         )
         return HTMLResponse(content=rendered, status_code=200)
 
@@ -103,9 +106,11 @@ class Authenticator:
     def secure(self) -> None:
         """Create the login and verification routes for the APIAuthenticator."""
         login_route = APIRoute(
-            path=self.login_path, endpoint=self.send_auth, methods=["GET"]
+            path=enums.APIEndpoints.login, endpoint=self.send_auth, methods=["GET"]
         )
         verify_route = APIRoute(
-            path=self.verify_path, endpoint=self.verify_auth, methods=["GET", "POST"]
+            path=enums.APIEndpoints.verify_login,
+            endpoint=self.verify_auth,
+            methods=["GET", "POST"],
         )
         self.app.routes.extend([login_route, verify_route])
