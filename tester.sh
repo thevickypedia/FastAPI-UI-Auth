@@ -1,26 +1,12 @@
-# pyapiauthenticator
-
-###### GET
-```shell
 curl -X GET http://localhost:8080/
-```
-
-###### POST
-```shell
+echo ""
 curl -X POST http://localhost:8080/
-```
-
-###### PUT
-```shell
+echo ""
 curl -X PUT http://localhost:8080/
-```
-
-###### PATCH
-```shell
+echo ""
 curl -X PATCH http://localhost:8080/hello
-```
-
-###### DELETE
-```shell
+echo ""
 curl -X DELETE http://localhost:8080/
-```
+echo ""
+curl -X OPTIONS http://localhost:8080/
+echo ""

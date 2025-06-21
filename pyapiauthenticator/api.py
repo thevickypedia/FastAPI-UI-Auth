@@ -3,7 +3,7 @@ import concurrent.futures
 import json
 import logging
 from datetime import datetime
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Dict
 
 LOGGER = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ LOGGER.setLevel(level=logging.DEBUG)
 
 
 # noinspection PyPep8Naming
-class SimpleAPIHandler(BaseHTTPRequestHandler):
+class SimpleAPIHandler(SimpleHTTPRequestHandler):
     """A simple HTTP request handler that serves a basic API endpoint.
 
     This handler demonstrates how to handle GET requests, set response headers and cookies,
@@ -56,8 +56,7 @@ class SimpleAPIHandler(BaseHTTPRequestHandler):
             max_age: int = 3_600,
             expires: str | datetime = None
     ) -> None:
-        """
-        Set multiple cookies in the HTTP response.
+        """Set multiple cookies in the HTTP response.
 
         Args:
             cookies: A dictionary of cookie name-value pairs to set.
@@ -91,8 +90,8 @@ class SimpleAPIHandler(BaseHTTPRequestHandler):
                 cookie += f"; Expires={expires}"
             self.send_header("Set-Cookie", cookie)
 
-    def do_GET(self):
-        """Handle GET requests to the server."""
+    def set_defaults(self) -> None:
+        """Logs the headers and cookies."""
         if cookie_header := self.headers.get('Cookie'):
             cookies = {}
             for pair in cookie_header.split(';'):
@@ -102,22 +101,55 @@ class SimpleAPIHandler(BaseHTTPRequestHandler):
             LOGGER.debug(cookies)
         LOGGER.debug(dict(self.headers))
 
-        if self.path == '/hello':
-            self.send_response(200)
-
-            self.set_headers(
-                {
-                    'Content-type': 'application/json',
-                    'X-Server': 'NoFrameworkServer'
-                }
-            )
-            self.set_cookies({'visited': 'true'})
-            self.end_headers()
-
-            response = {
-                'message': "Hello world!!"
+        self.send_response(200)
+        self.set_headers(
+            {
+                'Content-type': 'application/json',
+                'X-Server': 'NoFrameworkServer'
             }
-            self.wfile.write(json.dumps(response).encode())
+        )
+        self.set_cookies({'visited': 'true'})
+        self.end_headers()
+
+    def do_DELETE(self) -> None:
+        """Handle DELETE requests to the server."""
+        self.set_defaults()
+        self.wfile.write(json.dumps({"message": "🔴 DELETE received"}).encode())
+
+    def do_HEAD(self) -> None:
+        """Handle HEAD requests to the server."""
+        self.set_defaults()
+        self.wfile.write(json.dumps({"message": "🟣 HEAD received"}).encode())
+
+    def do_OPTIONS(self) -> None:
+        """Handle OPTIONS requests to the server."""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+        self.wfile.write(json.dumps({"message": "⚪ OPTIONS received"}).encode())
+
+    def do_POST(self) -> None:
+        """Handle POST requests to the server."""
+        self.set_defaults()
+        self.wfile.write(json.dumps({"message": "🟡 POST received"}).encode())
+
+    def do_PUT(self) -> None:
+        """Handle PUT requests to the server."""
+        self.set_defaults()
+        self.wfile.write(json.dumps({"message": "🔵 PUT received"}).encode())
+
+    def do_PATCH(self) -> None:
+        """Handle PATCH requests to the server."""
+        self.set_defaults()
+        self.wfile.write(json.dumps({"message": "🟠 PATCH received"}).encode())
+
+    def do_GET(self) -> None:
+        """Handle GET requests to the server."""
+        if self.path == '/':
+            self.set_defaults()
+            self.wfile.write(json.dumps({"message": "🟢 GET received"}).encode())
         else:
             self.send_response(404)
             self.send_header('Content-type', 'application/json')
@@ -126,30 +158,45 @@ class SimpleAPIHandler(BaseHTTPRequestHandler):
 
 
 # noinspection PyTypeChecker,HttpUrlsUsage
-def run(server_class=HTTPServer, handler_class=SimpleAPIHandler, host: str = '0.0.0.0', port: int = 8080):
-    server_address = (host, port)
-    httpd = server_class(server_address, handler_class)
-    print(f"Server running on http://{host}:{port}/hello")
-    httpd.serve_forever(0.5)
-
-
-# noinspection PyTypeChecker,HttpUrlsUsage
-async def run_async(server_class=HTTPServer, handler_class=SimpleAPIHandler, host='0.0.0.0', port=8080):
-    """Start the HTTP server and listen for incoming requests.
+def run(
+        server_class=HTTPServer,
+        handler_class=SimpleAPIHandler,
+        host: str = '0.0.0.0',
+        port: int = 8080
+) -> None:
+    """Start the HTTP server and listen for incoming requests in synchronous mode.
 
     Args:
         server_class: The server class to use.
         handler_class: The request handler class to use.
         host: The host address to bind to. Default is '0.0.0.0'.
         port: The port number to listen on. Default is 8080.
+    """
+    server_address = (host, port)
+    httpd = server_class(server_address, handler_class)
+    print(f"Server running on http://{host}:{port}")
+    httpd.serve_forever(0.5)
 
-    Note:
-        This function uses asyncio for compatibility but runs a blocking server internally.
+
+# noinspection PyTypeChecker,HttpUrlsUsage
+async def run_async(
+        server_class=HTTPServer,
+        handler_class=SimpleAPIHandler,
+        host: str = '0.0.0.0',
+        port: str = 8080
+) -> None:
+    """Start the HTTP server and listen for incoming requests in asynchronous mode.
+
+    Args:
+        server_class: The server class to use.
+        handler_class: The request handler class to use.
+        host: The host address to bind to. Default is '0.0.0.0'.
+        port: The port number to listen on. Default is 8080.
     """
     loop = asyncio.get_running_loop()
     server_address = (host, port)
     httpd = server_class(server_address, handler_class)
-    print(f"Server running on http://{host}:{port}/hello")
+    print(f"Server running on http://{host}:{port}/")
     with concurrent.futures.ThreadPoolExecutor() as pool:
         await loop.run_in_executor(pool, httpd.serve_forever, 0.5)
 
