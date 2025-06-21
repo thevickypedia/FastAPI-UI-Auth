@@ -1,22 +1,19 @@
 import os
-from typing import Callable, Dict
+from threading import Timer
+from typing import Callable, Dict, List
 
-import jinja2
 from fastapi import FastAPI
 from fastapi.params import Depends
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from fastapiauthenticator import enums, models, utils
-from fastapiauthenticator.version import version
+from fastapiauthenticator import endpoints, enums, models, utils
 
 BEARER_AUTH = HTTPBearer()
 
-# todo: Include session management
 
-
+# noinspection PyDefaultArgument
 class Authenticator:
     """Authenticator is a FastAPI integration that provides authentication for secure routes.
 
@@ -28,7 +25,9 @@ class Authenticator:
         self,
         app: FastAPI,
         secure_function: Callable = None,
+        secure_methods: List[str] = ["GET", "POST"],
         secure_path: str = "/secure",
+        session_timeout: int = 3600,
         username: str = os.environ.get("USERNAME"),
         password: str = os.environ.get("PASSWORD"),
     ):
@@ -49,9 +48,10 @@ class Authenticator:
             secure_path = "/" + secure_path
 
         self.app = app
-        self.template = utils.load_template()
+        self.secure_methods = secure_methods
         self.secure_function = secure_function
         self.secure_path = secure_path
+        self.session_timeout = session_timeout
 
         # noinspection PyTypeChecker
         self.app.add_exception_handler(
@@ -61,18 +61,6 @@ class Authenticator:
 
         self.username = username
         self.password = password
-
-    def send_auth(self) -> HTMLResponse:
-        """Render the login page with the verification path and version.
-
-        Returns:
-            HTMLResponse:
-            Rendered HTML response for the login page.
-        """
-        rendered = jinja2.Template(self.template).render(
-            signin=enums.APIEndpoints.verify_login, version=version
-        )
-        return HTMLResponse(content=rendered, status_code=200)
 
     def verify_auth(
         self,
@@ -98,19 +86,31 @@ class Authenticator:
         secure_route = APIRoute(
             path=self.secure_path,
             endpoint=self.secure_function,
-            methods=["GET", "POST"],
+            methods=self.secure_methods,
         )
         self.app.routes.append(secure_route)
+        # todo: Logging this might not be a bad idea
+        Timer(
+            function=self.app.routes.remove,
+            args=(secure_route,),
+            interval=self.session_timeout,
+        ).start()
         return {"redirect_url": self.secure_path}
 
     def secure(self) -> None:
         """Create the login and verification routes for the APIAuthenticator."""
         login_route = APIRoute(
-            path=enums.APIEndpoints.login, endpoint=self.send_auth, methods=["GET"]
+            path=enums.APIEndpoints.login, endpoint=endpoints.login, methods=["GET"]
+        )
+        error_route = APIRoute(
+            path=enums.APIEndpoints.error, endpoint=endpoints.error, methods=["GET"]
+        )
+        session_route = APIRoute(
+            path=enums.APIEndpoints.session, endpoint=endpoints.session, methods=["GET"]
         )
         verify_route = APIRoute(
             path=enums.APIEndpoints.verify_login,
             endpoint=self.verify_auth,
             methods=["GET", "POST"],
         )
-        self.app.routes.extend([login_route, verify_route])
+        self.app.routes.extend([login_route, session_route, error_route, verify_route])

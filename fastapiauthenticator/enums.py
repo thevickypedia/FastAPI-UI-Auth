@@ -11,4 +11,5 @@ class APIEndpoints(StrEnum):
     login = "/login"
     logout = "/logout"
     error = "/error"
+    session = "/session"
     verify_login = "/verify-login"

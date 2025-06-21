@@ -1,4 +1,3 @@
-import pathlib
 import secrets
 from typing import Dict, List, NoReturn, Union
 
@@ -14,13 +13,6 @@ from fastapiauthenticator import enums, models, secure
 BEARER_AUTH = HTTPBearer()
 
 
-def load_template() -> str:
-    """Load the HTML template for the login page."""
-    template_path = pathlib.Path(__file__).parent / "templates" / "index.html"
-    with open(template_path, "r", encoding="utf-8") as file:
-        return file.read()
-
-
 def failed_auth_counter(host: str) -> None:
     """Keeps track of failed login attempts from each host, and redirects if failed for 3 or more times.
 
@@ -32,7 +24,7 @@ def failed_auth_counter(host: str) -> None:
     except KeyError:
         models.ws_session.invalid[host] = 1
     if models.ws_session.invalid[host] >= 3:
-        raise models.RedirectException(location="/error")
+        raise models.RedirectException(location=enums.APIEndpoints.error)
 
 
 def redirect_exception_handler(
@@ -48,9 +40,9 @@ def redirect_exception_handler(
         JSONResponse:
         Returns the JSONResponse with content, status code and cookie.
     """
-    # LOGGER.debug("Exception headers: %s", request.headers)
-    # LOGGER.debug("Exception cookies: %s", request.cookies)
-    if request.url.path == enums.APIEndpoints.login:
+    logger.warning("Exception headers: %s", request.headers)
+    logger.warning("Exception cookies: %s", request.cookies)
+    if request.url.path == enums.APIEndpoints.verify_login:
         response = JSONResponse(
             content={"redirect_url": exception.location}, status_code=200
         )

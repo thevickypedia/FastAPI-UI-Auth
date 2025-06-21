@@ -29,7 +29,7 @@ app.routes.append(
     )
 )
 authenticator = fastapiauthenticator.Authenticator(
-    app=app, secure_function=secure_function
+    app=app, secure_function=secure_function, session_timeout=3
 )
 authenticator.secure()
 

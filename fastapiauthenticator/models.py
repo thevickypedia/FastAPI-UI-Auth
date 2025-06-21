@@ -1,6 +1,10 @@
+import pathlib
 from typing import Dict, Optional
 
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+
+templates = Jinja2Templates(directory=pathlib.Path(__file__).parent / "templates")
 
 
 class WSSession(BaseModel):
