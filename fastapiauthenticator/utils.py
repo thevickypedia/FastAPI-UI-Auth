@@ -1,16 +1,16 @@
+import logging
 import secrets
 from typing import Dict, List, NoReturn, Union
 
 from fastapi import status
 from fastapi.exceptions import HTTPException
-from fastapi.logger import logger
 from fastapi.requests import Request
-from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.security import HTTPAuthorizationCredentials
 
 from fastapiauthenticator import enums, models, secure
 
-BEARER_AUTH = HTTPBearer()
+LOGGER = logging.getLogger("uvicorn.default")
 
 
 def failed_auth_counter(host: str) -> None:
@@ -29,7 +29,7 @@ def failed_auth_counter(host: str) -> None:
 
 def redirect_exception_handler(
     request: Request, exception: models.RedirectException
-) -> JSONResponse:
+) -> JSONResponse | RedirectResponse:
     """Custom exception handler to handle redirect.
 
     Args:
@@ -40,8 +40,8 @@ def redirect_exception_handler(
         JSONResponse:
         Returns the JSONResponse with content, status code and cookie.
     """
-    logger.warning("Exception headers: %s", request.headers)
-    logger.warning("Exception cookies: %s", request.cookies)
+    LOGGER.warning("Exception headers: %s", request.headers)
+    LOGGER.warning("Exception cookies: %s", request.cookies)
     if request.url.path == enums.APIEndpoints.verify_login:
         response = JSONResponse(
             content={"redirect_url": exception.location}, status_code=200
@@ -62,7 +62,7 @@ def raise_error(host: str) -> NoReturn:
         host: Host header from the request.
     """
     failed_auth_counter(host)
-    logger.error(
+    LOGGER.error(
         "Incorrect username or password: %d",
         models.ws_session.invalid[host],
     )
@@ -107,7 +107,7 @@ def verify_login(
         hex_user = secure.hex_encode(env_username)
         hex_pass = secure.hex_encode(env_password)
     else:
-        logger.warning("User '%s' not allowed", username)
+        LOGGER.warning("User '%s' not allowed", username)
         raise_error(host)
     message = f"{hex_user}{hex_pass}{timestamp}"
     expected_signature = secure.calculate_hash(message)
@@ -119,3 +119,49 @@ def verify_login(
         )
         return models.ws_session.client_auth[host]
     raise_error(host)
+
+
+def session_check(request: Request) -> None:
+    """Check if the session is still valid.
+
+    Args:
+        request: Request object containing client information.
+
+    Raises:
+        HTTPException: If the session is invalid or expired.
+    """
+    stored_token = models.ws_session.client_auth.get(request.client.host, {}).get(
+        "token"
+    )
+    session_token = request.cookies.get("session_token")
+    if (
+        stored_token
+        and session_token
+        and secrets.compare_digest(session_token, stored_token)
+    ):
+        LOGGER.info("Session is valid for host: %s", request.client.host)
+        return
+    raise models.RedirectException(
+        location=enums.APIEndpoints.session,
+        detail="Session expired or invalid. Please log in again.",
+    )
+
+
+def clear_session(request: Request, response: HTMLResponse) -> HTMLResponse:
+    """Clear the session token from the response.
+
+    Args:
+        request: FastAPI ``request`` object.
+        response: FastAPI ``response`` object.
+
+    Returns:
+        HTMLResponse:
+        Returns the response object with the session token cleared.
+    """
+    for cookie in request.cookies:
+        # Deletes all cookies stored in current session
+        LOGGER.info("Deleting cookie: '%s'", cookie)
+        response.delete_cookie(cookie)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Authorization"] = ""
+    return response

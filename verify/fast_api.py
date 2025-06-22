@@ -28,10 +28,9 @@ app.routes.append(
         endpoint=root_page,
     )
 )
-authenticator = fastapiauthenticator.Authenticator(
-    app=app, secure_function=secure_function, session_timeout=300
+fastapiauthenticator.Authenticator(
+    app=app, secure_function=secure_function, session_timeout=30
 )
-authenticator.secure()
 
 if __name__ == "__main__":
     uvicorn.run(app=app, port=8000)
