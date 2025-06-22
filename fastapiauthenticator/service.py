@@ -3,6 +3,7 @@ import os
 from threading import Timer
 from typing import Callable, Dict, List
 
+import dotenv
 from fastapi import FastAPI
 from fastapi.params import Depends
 from fastapi.requests import Request
@@ -12,6 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from fastapiauthenticator import endpoints, enums, models, utils
 
+dotenv.load_dotenv(dotenv_path=dotenv.find_dotenv(), override=True)
 LOGGER = logging.getLogger("uvicorn.default")
 BEARER_AUTH = HTTPBearer()
 

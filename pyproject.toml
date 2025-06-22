@@ -15,8 +15,11 @@ dependencies = { file = ["requirements.txt"] }
 version = { attr = "fastapiauthenticator.version" }
 
 [project.optional-dependencies]
-dev = { file = ["requirements-dev.txt"] }
+dev = [
+    "pre-commit==4.2.*",
+    "uvicorn==0.34.*"
+]
 
 [build-system]
-requires      = ["setuptools", "wheel"]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
