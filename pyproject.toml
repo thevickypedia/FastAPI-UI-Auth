@@ -12,7 +12,7 @@ packages = ["fastapiauthenticator", "fastapiauthenticator.templates"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
-version = { attr = "fastapiauthenticator.version" }
+version = { attr = "fastapiauthenticator.version.version" }
 
 [project.optional-dependencies]
 dev = [
