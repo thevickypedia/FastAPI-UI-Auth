@@ -10,8 +10,12 @@ Python module to add username and password authentication to specific FastAPI ro
 
 ## Installation
 
-```bash
-pip install https://github.com/thevickypedia/FastAPIAuthenticator.git
+```shell
+repo="thevickypedia/FastAPIAuthenticator"
+
+latest=$(curl -s https://api.github.com/repos/${repo}/tags | jq -r '.[0].name')
+
+pip install "git+https://github.com/${repo}.git@${latest}"
 ```
 
 ## Usage
@@ -39,6 +43,17 @@ fastapiauthenticator.Authenticator(app=app, secure_function=private_route)
 ## Coding Standards
 Docstring format: [`Google`][google-docs] <br>
 Styling conventions: [`PEP 8`][pep8] and [`isort`][isort]
+
+## [Release Notes][release-notes]
+**Requirement**
+```shell
+python -m pip install gitverse
+```
+
+**Usage**
+```shell
+gitverse-release reverse -f release_notes.rst -t 'Release Notes'
+```
 
 ## Linting
 
@@ -68,3 +83,4 @@ Licensed under the [MIT License][license]
 
 [label-pyversion]: https://img.shields.io/badge/python-3.11%20%7C%203.12-blue
 [label-platform]: https://img.shields.io/badge/Platform-Linux|macOS|Windows-1f425f.svg
+[release-notes]: https://github.com/thevickypedia/FastAPIAuthenticator/blob/main/release_notes.rst
