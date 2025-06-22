@@ -1,17 +1,20 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.routing import APIRoute
 
 import fastapiauthenticator
 
-app = FastAPI()
-
 
 def root_page() -> RedirectResponse:
     """Re-direct the user to login page."""
-    return RedirectResponse(url=fastapiauthenticator.APIEndpoints.login)
+    return RedirectResponse(url=fastapiauthenticator.APIEndpoints.fastapi_login)
+
+
+def hello_world() -> JSONResponse:
+    """A simple function that returns a JSON response with a greeting message."""
+    return JSONResponse({"message": "Hello, World!"})
 
 
 def secure_function(_: Request) -> HTMLResponse:
@@ -22,14 +25,25 @@ def secure_function(_: Request) -> HTMLResponse:
     )
 
 
-app.routes.append(
-    APIRoute(
-        path="/",
-        endpoint=root_page,
-    )
+app = FastAPI(
+    routes=[
+        APIRoute(
+            path="/",
+            endpoint=root_page,
+        ),
+        APIRoute(
+            path="/hello",
+            endpoint=hello_world,
+            methods=["GET"],
+        ),
+    ]
 )
 fastapiauthenticator.Authenticator(
-    app=app, secure_function=secure_function, session_timeout=30
+    app=app,
+    secure_function=secure_function,
+    session_timeout=30,
+    fallback_button="NAVIGATE",
+    fallback_path="/hello",
 )
 
 if __name__ == "__main__":

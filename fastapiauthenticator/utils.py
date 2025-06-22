@@ -24,7 +24,7 @@ def failed_auth_counter(host: str) -> None:
     except KeyError:
         models.ws_session.invalid[host] = 1
     if models.ws_session.invalid[host] >= 3:
-        raise models.RedirectException(location=enums.APIEndpoints.error)
+        raise models.RedirectException(location=enums.APIEndpoints.fastapi_error)
 
 
 def redirect_exception_handler(
@@ -42,7 +42,7 @@ def redirect_exception_handler(
     """
     LOGGER.warning("Exception headers: %s", request.headers)
     LOGGER.warning("Exception cookies: %s", request.cookies)
-    if request.url.path == enums.APIEndpoints.verify_login:
+    if request.url.path == enums.APIEndpoints.fastapi_verify_login:
         response = JSONResponse(
             content={"redirect_url": exception.location}, status_code=200
         )
@@ -142,7 +142,7 @@ def session_check(request: Request) -> None:
         LOGGER.info("Session is valid for host: %s", request.client.host)
         return
     raise models.RedirectException(
-        location=enums.APIEndpoints.session,
+        location=enums.APIEndpoints.fastapi_session,
         detail="Session expired or invalid. Please log in again.",
     )
 

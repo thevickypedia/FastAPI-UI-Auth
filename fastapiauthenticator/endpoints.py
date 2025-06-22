@@ -21,9 +21,10 @@ def session(request: Request) -> HTMLResponse:
             name="session.html",
             context={
                 "request": request,
-                "signin": enums.APIEndpoints.login,
+                "signin": enums.APIEndpoints.fastapi_login,
                 "reason": "Session expired or invalid.",
-                "redirect": "/",  # todo: come from user input
+                "fallback_path": models.fallback.path,
+                "fallback_button": models.fallback.button,
                 "version": f"v{version}",
             },
         ),
@@ -43,7 +44,7 @@ def login(request: Request) -> HTMLResponse:
             name="index.html",
             context={
                 "request": request,
-                "signin": enums.APIEndpoints.verify_login,
+                "signin": enums.APIEndpoints.fastapi_verify_login,
                 "version": f"v{version}",
             },
         ),
@@ -66,8 +67,9 @@ def error(request: Request) -> HTMLResponse:
             name="unauthorized.html",
             context={
                 "request": request,
-                "signin": enums.APIEndpoints.login,
-                "redirect": "/",  # todo: come from user input
+                "signin": enums.APIEndpoints.fastapi_login,
+                "fallback_path": models.fallback.path,
+                "fallback_button": models.fallback.button,
                 "version": f"v{version}",
             },
         ),

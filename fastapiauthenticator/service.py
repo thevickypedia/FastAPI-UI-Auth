@@ -29,7 +29,9 @@ class Authenticator:
         app: FastAPI,
         secure_function: Callable = None,
         secure_methods: List[str] = ["GET", "POST"],
-        secure_path: str = "/secure",
+        secure_path: str = enums.APIEndpoints.fastapi_secure,
+        fallback_button: str = models.fallback.button,
+        fallback_path: str = models.fallback.path,
         session_timeout: int = 3600,
         username: str = os.environ.get("USERNAME"),
         password: str = os.environ.get("PASSWORD"),
@@ -37,24 +39,28 @@ class Authenticator:
         """Initialize the APIAuthenticator with the FastAPI app and secure function.
 
         Args:
-            app: FastAPI application instance.
-            secure_function: Function to be secured, which will be called after successful authentication.
-            secure_path: API path for the secure function.
-            username: Username for authentication, set via environment variable 'USERNAME'.
-            password: Password for authentication, set via environment variable 'PASSWORD'.
+            app: FastAPI application instance to which the authenticator will be added.
+            secure_function: Function to be called for secure routes after authentication.
+            secure_methods: List of HTTP methods that the secure function will handle.
+            secure_path: Path for the secure route, must start with '/'.
+            fallback_button: Title for the fallback button, defaults to "LOGIN".
+            fallback_path: Fallback path to redirect to in case of session timeout or invalid session.
+            session_timeout: Duration in seconds after which the session expires.
+            username: Username for authentication, can be set via environment variable 'USERNAME'.
+            password: Password for authentication, can be set via environment variable 'PASSWORD'.
         """
-        assert all(
-            (username, password)
-        ), "Username and password must be set in environment variables 'USERNAME' and 'PASSWORD'."
+        assert all((username, password)), "'username' and 'password' are mandatory."
         assert secure_function, "Secure function must be provided."
-        if not secure_path.startswith("/"):
-            secure_path = "/" + secure_path
+        assert secure_path.startswith("/"), "Secure path must start with '/'"
+        assert fallback_path.startswith("/"), "Fallback path must start with '/'"
 
         self.app = app
         self.secure_methods = secure_methods
         self.secure_function = secure_function
         self.secure_path = secure_path
         self.session_timeout = session_timeout
+        models.fallback.path = fallback_path
+        models.fallback.button = fallback_button
 
         # noinspection PyTypeChecker
         self.app.add_exception_handler(
@@ -103,6 +109,25 @@ class Authenticator:
         )
         return {"redirect_url": self.secure_path}
 
+    def _setup_session_route(self, secure_route: APIRoute) -> None:
+        """Removes the secure route and adds a routing logic for invalid sessions.
+
+        Args:
+            secure_route: Secure route to be removed from the app after the session timeout.
+        """
+        LOGGER.info("Session expired, removing secure route: %s", secure_route.path)
+        self.app.routes.remove(secure_route)
+        LOGGER.info(
+            "Adding session route to handle expired sessions at %s", self.secure_path
+        )
+        self.app.routes.append(
+            APIRoute(
+                path=self.secure_path,
+                endpoint=endpoints.session,
+                methods=["GET"],
+            )
+        )
+
     def _handle_session(
         self, response: Response, request: Request, secure_route: APIRoute
     ) -> None:
@@ -115,7 +140,7 @@ class Authenticator:
         """
         # Remove the secure route after the session timeout - backend
         Timer(
-            function=self.app.routes.remove,
+            function=self._setup_session_route,
             args=(secure_route,),
             interval=self.session_timeout,
         ).start()
@@ -131,16 +156,22 @@ class Authenticator:
     def _secure(self) -> None:
         """Create the login and verification routes for the APIAuthenticator."""
         login_route = APIRoute(
-            path=enums.APIEndpoints.login, endpoint=endpoints.login, methods=["GET"]
+            path=enums.APIEndpoints.fastapi_login,
+            endpoint=endpoints.login,
+            methods=["GET"],
         )
         error_route = APIRoute(
-            path=enums.APIEndpoints.error, endpoint=endpoints.error, methods=["GET"]
+            path=enums.APIEndpoints.fastapi_error,
+            endpoint=endpoints.error,
+            methods=["GET"],
         )
         session_route = APIRoute(
-            path=enums.APIEndpoints.session, endpoint=endpoints.session, methods=["GET"]
+            path=enums.APIEndpoints.fastapi_session,
+            endpoint=endpoints.session,
+            methods=["GET"],
         )
         verify_route = APIRoute(
-            path=enums.APIEndpoints.verify_login,
+            path=enums.APIEndpoints.fastapi_verify_login,
             endpoint=self._verify_auth,
             methods=["POST"],
         )

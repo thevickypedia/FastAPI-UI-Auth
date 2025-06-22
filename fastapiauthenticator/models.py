@@ -18,6 +18,19 @@ class WSSession(BaseModel):
     client_auth: Dict[str, Dict[str, int]] = Field(default_factory=dict)
 
 
+class Fallback(BaseModel):
+    """Object to store fallback information.
+
+    >>> Fallback
+
+    """
+
+    button: str = Field(default="LOGIN", description="Title for the fallback button.")
+    path: str = Field(
+        default="/", description="Path to redirect when fallback button is clicked."
+    )
+
+
 class RedirectException(Exception):
     """Custom ``RedirectException`` raised within the API since HTTPException doesn't support returning HTML content.
 
@@ -44,3 +57,4 @@ class RedirectException(Exception):
 
 
 ws_session = WSSession()
+fallback = Fallback()

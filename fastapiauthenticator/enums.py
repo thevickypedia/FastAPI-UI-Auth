@@ -8,8 +8,9 @@ class APIEndpoints(StrEnum):
 
     """
 
-    login = "/login"
-    logout = "/logout"
-    error = "/error"
-    session = "/session"
-    verify_login = "/verify-login"
+    fastapi_error = "/fastapi-error"
+    fastapi_login = "/fastapi-login"
+    fastapi_logout = "/fastapi-logout"
+    fastapi_secure = "/fastapi-secure"
+    fastapi_session = "/fastapi-session"
+    fastapi_verify_login = "/fastapi-verify-login"
