@@ -30,11 +30,11 @@ class Authenticator:
         secure_function: Callable = None,
         secure_methods: List[str] = ["GET", "POST"],
         secure_path: str = enums.APIEndpoints.fastapi_secure,
-        fallback_button: str = models.fallback.button,
-        fallback_path: str = models.fallback.path,
-        session_timeout: int = 3600,
         username: str = os.environ.get("USERNAME"),
         password: str = os.environ.get("PASSWORD"),
+        session_timeout: int = 3600,
+        fallback_button: str = models.fallback.button,
+        fallback_path: str = models.fallback.path,
     ):
         """Initialize the APIAuthenticator with the FastAPI app and secure function.
 
@@ -43,11 +43,11 @@ class Authenticator:
             secure_function: Function to be called for secure routes after authentication.
             secure_methods: List of HTTP methods that the secure function will handle.
             secure_path: Path for the secure route, must start with '/'.
-            fallback_button: Title for the fallback button, defaults to "LOGIN".
-            fallback_path: Fallback path to redirect to in case of session timeout or invalid session.
-            session_timeout: Duration in seconds after which the session expires.
             username: Username for authentication, can be set via environment variable 'USERNAME'.
             password: Password for authentication, can be set via environment variable 'PASSWORD'.
+            session_timeout: Duration in seconds after which the session expires.
+            fallback_button: Title for the fallback button, defaults to "LOGIN".
+            fallback_path: Fallback path to redirect to in case of session timeout or invalid session.
         """
         assert all((username, password)), "'username' and 'password' are mandatory."
         assert secure_function, "Secure function must be provided."

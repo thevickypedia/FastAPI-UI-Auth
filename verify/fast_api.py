@@ -41,7 +41,9 @@ app = FastAPI(
 fastapiauthenticator.Authenticator(
     app=app,
     secure_function=secure_function,
-    session_timeout=30,
+    secure_methods=["GET"],
+    secure_path="/sensitive-data",
+    session_timeout=300,
     fallback_button="NAVIGATE",
     fallback_path="/hello",
 )
