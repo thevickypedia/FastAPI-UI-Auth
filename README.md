@@ -11,7 +11,7 @@ Python module to add username and password authentication to specific FastAPI ro
 ## Installation
 
 ```bash
-pip install FastAPIAuthenticator
+pip install https://github.com/thevickypedia/FastAPIAuthenticator.git
 ```
 
 ## Usage
@@ -19,7 +19,7 @@ pip install FastAPIAuthenticator
 ```python
 import fastapiauthenticator
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 
 app = FastAPI()
 
