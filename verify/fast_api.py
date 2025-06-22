@@ -38,9 +38,10 @@ app = FastAPI(
         ),
     ]
 )
-fastapiauthenticator.Authenticator(
+fastapiauthenticator.protect(
     app=app,
     secure_function=secure_function,
+    route=APIRoute,
     secure_methods=["GET"],
     secure_path="/sensitive-data",
     session_timeout=300,

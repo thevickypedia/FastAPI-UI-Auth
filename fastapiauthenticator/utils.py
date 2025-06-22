@@ -2,7 +2,7 @@ import logging
 import secrets
 from typing import Dict, List, NoReturn, Union
 
-from fastapi import status
+from fastapi import WebSocket, status
 from fastapi.exceptions import HTTPException
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -121,26 +121,36 @@ def verify_login(
     raise_error(host)
 
 
-def session_check(request: Request) -> None:
+def session_check(request: Request = None, websocket: WebSocket = None) -> None:
     """Check if the session is still valid.
 
     Args:
-        request: Request object containing client information.
+        request: Request containing client information.
+        websocket: WebSocket connection object.
 
     Raises:
         HTTPException: If the session is invalid or expired.
     """
-    stored_token = models.ws_session.client_auth.get(request.client.host, {}).get(
-        "token"
-    )
-    session_token = request.cookies.get("session_token")
+    if request:
+        host = request.client.host
+        session_token = request.cookies.get("session_token")
+    elif websocket:
+        host = websocket.client.host
+        session_token = websocket.cookies.get("session_token")
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Request or WebSocket connection is required for session check.",
+        )
+    stored_token = models.ws_session.client_auth.get(host, {}).get("token")
     if (
         stored_token
         and session_token
         and secrets.compare_digest(session_token, stored_token)
     ):
-        LOGGER.info("Session is valid for host: %s", request.client.host)
+        LOGGER.info("Session is valid for host: %s", host)
         return
+    LOGGER.warning("Session is invalid for host: %s", host)
     raise models.RedirectException(
         location=enums.APIEndpoints.fastapi_session,
         detail="Session expired or invalid. Please log in again.",

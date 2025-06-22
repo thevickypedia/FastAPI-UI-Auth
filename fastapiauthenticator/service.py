@@ -1,14 +1,14 @@
 import logging
 import os
 from threading import Timer
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Type
 
 import dotenv
 from fastapi import FastAPI
 from fastapi.params import Depends
 from fastapi.requests import Request
 from fastapi.responses import Response
-from fastapi.routing import APIRoute
+from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from fastapiauthenticator import endpoints, enums, models, utils
@@ -29,7 +29,8 @@ class Authenticator:
     def __init__(
         self,
         app: FastAPI,
-        secure_function: Callable = None,
+        secure_function: Callable,
+        route: Type[APIWebSocketRoute] | Type[APIRoute] = None,
         secure_methods: List[str] = ["GET", "POST"],
         secure_path: str = enums.APIEndpoints.fastapi_secure,
         username: str = os.environ.get("USERNAME"),
@@ -55,12 +56,18 @@ class Authenticator:
         assert secure_function, "Secure function must be provided."
         assert secure_path.startswith("/"), "Secure path must start with '/'"
         assert fallback_path.startswith("/"), "Fallback path must start with '/'"
+        assert route in (
+            APIRoute,
+            APIWebSocketRoute,
+        ), "Route must be either APIRoute or APIWebSocketRoute"
 
         self.app = app
+        self.route = route
+        self.secure_path = secure_path
         self.secure_methods = secure_methods
         self.secure_function = secure_function
-        self.secure_path = secure_path
         self.session_timeout = session_timeout
+
         models.fallback.path = fallback_path
         models.fallback.button = fallback_button
 
@@ -98,16 +105,16 @@ class Authenticator:
             env_username=self.username,
             env_password=self.password,
         )
-        secure_route = APIRoute(
+        private_route = APIRoute(
             path=self.secure_path,
             endpoint=self.secure_function,
             methods=self.secure_methods,
             dependencies=[Depends(utils.session_check)],
         )
-        self.app.routes.append(secure_route)
+        self.app.routes.append(private_route)
         LOGGER.info("Setting session timeout for %s seconds", self.session_timeout)
         self._handle_session(
-            response=response, request=request, secure_route=secure_route
+            response=response, request=request, secure_route=private_route
         )
         return {"redirect_url": self.secure_path}
 
@@ -172,9 +179,20 @@ class Authenticator:
             endpoint=endpoints.session,
             methods=["GET"],
         )
-        verify_route = APIRoute(
-            path=enums.APIEndpoints.fastapi_verify_login,
-            endpoint=self._verify_auth,
-            methods=["POST"],
-        )
-        self.app.routes.extend([login_route, session_route, error_route, verify_route])
+        # todo: WebSocket authentication cannot be handled without a predecessor API route
+        if self.route is APIWebSocketRoute:
+            secure_route = APIWebSocketRoute(
+                path=self.secure_path,
+                endpoint=self.secure_function,
+                dependencies=[Depends(utils.session_check)],
+            )
+        elif self.route is APIRoute:
+            secure_route = APIRoute(
+                path=enums.APIEndpoints.fastapi_verify_login,
+                endpoint=self._verify_auth,
+                methods=["POST"],
+            )
+        else:
+            # SafetyNet: This should never happen due to the assertion in __init__
+            raise TypeError("Route must be either APIRoute or APIWebSocketRoute")
+        self.app.routes.extend([login_route, session_route, error_route, secure_route])

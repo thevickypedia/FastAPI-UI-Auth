@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Siri Wave with WebSocket Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- JS to kick off siri wave pattern -->
+  <script src="https://unpkg.com/siriwave/dist/siriwave.umd.min.js" onerror="this.onerror=null; this.src='/siriwave.js'"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: sans-serif;
+      color: white;
+    }
+    #siri-wave {
+      width: 100%;
+      height: 300px;
+    }
+    .status {
+      margin-top: 10px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="siri-wave"></div>
+  <div class="status" id="status">Waiting for command...</div>
+
+  <script>
+    const siriWave = new SiriWave({
+      container: document.getElementById("siri-wave"),
+      width: window.innerWidth,
+      height: 300,
+      style: "ios9",
+      speed: 0.2,
+      amplitude: 0,
+      frequency: 6,
+      color: "#ffffff",
+      autostart: true,
+      cover: true,
+    });
+
+    function startWave() {
+      siriWave.setAmplitude(2);
+      siriWave.start();
+      setStatus("Wave started");
+    }
+
+    function stopWave() {
+      siriWave.stop();
+      siriWave.setAmplitude(0);
+      siriWave.start();
+      setTimeout(() => siriWave.setAmplitude(0), 100);
+      setStatus("Wave stopped");
+    }
+
+    function setStatus(text) {
+      document.getElementById("status").textContent = text;
+    }
+
+    // WebSocket setup
+    const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${wsProtocol}//${location.host}/ws`);
+
+    ws.onopen = () => {
+      setStatus("WebSocket connected, waiting for commands...");
+    };
+
+    ws.onmessage = (event) => {
+      const command = event.data.trim().toLowerCase();
+      if (command === "start") {
+        startWave();
+      } else if (command === "stop") {
+        stopWave();
+      } else {
+        setStatus(`Unknown command: ${command}`);
+      }
+    };
+
+    ws.onclose = () => {
+      setStatus("WebSocket disconnected");
+    };
+
+    ws.onerror = (err) => {
+      setStatus("WebSocket error");
+      console.error(err);
+    };
+  </script>
+</body>
+</html>
