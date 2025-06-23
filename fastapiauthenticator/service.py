@@ -1,7 +1,7 @@
 import logging
 import os
 from threading import Timer
-from typing import Callable, Dict, List, Type
+from typing import Dict, List
 
 import dotenv
 from fastapi import FastAPI
@@ -29,13 +29,9 @@ class Authenticator:
     def __init__(
         self,
         app: FastAPI,
-        secure_function: Callable,
-        route: Type[APIWebSocketRoute] | Type[APIRoute] = None,
-        secure_methods: List[str] = ["GET", "POST"],
-        secure_path: str = enums.APIEndpoints.fastapi_secure,
+        params: models.Params | List[models.Params],
         username: str = os.environ.get("USERNAME"),
         password: str = os.environ.get("PASSWORD"),
-        session_timeout: int = 3600,
         fallback_button: str = models.fallback.button,
         fallback_path: str = models.fallback.path,
     ):
@@ -43,30 +39,24 @@ class Authenticator:
 
         Args:
             app: FastAPI application instance to which the authenticator will be added.
-            secure_function: Function to be called for secure routes after authentication.
-            secure_methods: List of HTTP methods that the secure function will handle.
-            secure_path: Path for the secure route, must start with '/'.
             username: Username for authentication, can be set via environment variable 'USERNAME'.
             password: Password for authentication, can be set via environment variable 'PASSWORD'.
-            session_timeout: Duration in seconds after which the session expires.
             fallback_button: Title for the fallback button, defaults to "LOGIN".
             fallback_path: Fallback path to redirect to in case of session timeout or invalid session.
         """
         assert all((username, password)), "'username' and 'password' are mandatory."
-        assert secure_function, "Secure function must be provided."
-        assert secure_path.startswith("/"), "Secure path must start with '/'"
         assert fallback_path.startswith("/"), "Fallback path must start with '/'"
-        assert route in (
-            APIRoute,
-            APIWebSocketRoute,
-        ), "Route must be either APIRoute or APIWebSocketRoute"
 
         self.app = app
-        self.route = route
-        self.secure_path = secure_path
-        self.secure_methods = secure_methods
-        self.secure_function = secure_function
-        self.session_timeout = session_timeout
+
+        if isinstance(params, list):
+            self.params = params
+        elif isinstance(params, models.Params):
+            self.params = [params]
+
+        self.route_map: Dict[str, models.Params] = {
+            param.path: param for param in self.params if param.route is APIRoute
+        }
 
         models.fallback.path = fallback_path
         models.fallback.button = fallback_button
@@ -105,18 +95,33 @@ class Authenticator:
             env_username=self.username,
             env_password=self.password,
         )
+        referer = request.headers.get("Referer")
+        origin = request.headers.get("Origin")
+        destination = referer.replace(origin, "")
+        parameter = self.route_map.get(destination)
         private_route = APIRoute(
-            path=self.secure_path,
-            endpoint=self.secure_function,
-            methods=self.secure_methods,
+            path=parameter.path,
+            endpoint=parameter.function,
+            methods=parameter.methods,
             dependencies=[Depends(utils.session_check)],
         )
+        for route in self.app.routes:
+            if route.path == private_route.path:
+                LOGGER.info(
+                    "Route %s already exists, removing it to replace with secure route.",
+                    private_route.path,
+                )
+                self.app.routes.remove(route)
+                break
         self.app.routes.append(private_route)
-        LOGGER.info("Setting session timeout for %s seconds", self.session_timeout)
+        LOGGER.info("Setting session timeout for %s seconds", parameter.timeout)
         self._handle_session(
-            response=response, request=request, secure_route=private_route
+            response=response,
+            request=request,
+            secure_route=private_route,
+            timeout=parameter.timeout,
         )
-        return {"redirect_url": self.secure_path}
+        return {"redirect_url": parameter.path}
 
     def _setup_session_route(self, secure_route: APIRoute) -> None:
         """Removes the secure route and adds a routing logic for invalid sessions.
@@ -127,18 +132,22 @@ class Authenticator:
         LOGGER.info("Session expired, removing secure route: %s", secure_route.path)
         self.app.routes.remove(secure_route)
         LOGGER.info(
-            "Adding session route to handle expired sessions at %s", self.secure_path
+            "Adding session route to handle expired sessions at %s", secure_route.path
         )
         self.app.routes.append(
             APIRoute(
-                path=self.secure_path,
+                path=secure_route.path,
                 endpoint=endpoints.session,
                 methods=["GET"],
             )
         )
 
     def _handle_session(
-        self, response: Response, request: Request, secure_route: APIRoute
+        self,
+        response: Response,
+        request: Request,
+        secure_route: APIRoute,
+        timeout: int,
     ) -> None:
         """Handle session management by setting a cookie and scheduling session removal.
 
@@ -151,7 +160,7 @@ class Authenticator:
         Timer(
             function=self._setup_session_route,
             args=(secure_route,),
-            interval=self.session_timeout,
+            interval=timeout,
         ).start()
         # Set the max age in session cookie to session timeout - frontend
         response.set_cookie(
@@ -159,16 +168,11 @@ class Authenticator:
             value=models.ws_session.client_auth[request.client.host].get("token"),
             httponly=True,
             samesite="strict",
-            max_age=self.session_timeout,
+            max_age=timeout,
         )
 
     def _secure(self) -> None:
         """Create the login and verification routes for the APIAuthenticator."""
-        login_route = APIRoute(
-            path=enums.APIEndpoints.fastapi_login,
-            endpoint=endpoints.login,
-            methods=["GET"],
-        )
         error_route = APIRoute(
             path=enums.APIEndpoints.fastapi_error,
             endpoint=endpoints.error,
@@ -179,20 +183,23 @@ class Authenticator:
             endpoint=endpoints.session,
             methods=["GET"],
         )
-        # todo: WebSocket authentication cannot be handled without a predecessor API route
-        if self.route is APIWebSocketRoute:
-            secure_route = APIWebSocketRoute(
-                path=self.secure_path,
-                endpoint=self.secure_function,
-                dependencies=[Depends(utils.session_check)],
-            )
-        elif self.route is APIRoute:
-            secure_route = APIRoute(
-                path=enums.APIEndpoints.fastapi_verify_login,
-                endpoint=self._verify_auth,
-                methods=["POST"],
-            )
-        else:
-            # SafetyNet: This should never happen due to the assertion in __init__
-            raise TypeError("Route must be either APIRoute or APIWebSocketRoute")
-        self.app.routes.extend([login_route, session_route, error_route, secure_route])
+        verify_route = APIRoute(
+            path=enums.APIEndpoints.fastapi_verify_login,
+            endpoint=self._verify_auth,
+            methods=["POST"],
+        )
+        for param in self.params:
+            if param.route is APIWebSocketRoute:
+                secure_route = APIWebSocketRoute(
+                    path=param.path,
+                    endpoint=param.function,
+                    dependencies=[Depends(utils.session_check)],
+                )
+            else:
+                secure_route = APIRoute(
+                    path=param.path,
+                    endpoint=endpoints.login,
+                    methods=["GET"],
+                )
+            self.app.routes.append(secure_route)
+        self.app.routes.extend([session_route, verify_route, error_route])

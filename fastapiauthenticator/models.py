@@ -1,10 +1,36 @@
 import pathlib
-from typing import Dict, Optional
+from typing import Callable, Dict, List, Optional, Type
 
+from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PositiveInt
+
+from fastapiauthenticator.enums import APIMethods
 
 templates = Jinja2Templates(directory=pathlib.Path(__file__).parent / "templates")
+
+
+class Params(BaseModel):
+    """Parameters for the Authenticator class.
+
+    >>> Params
+
+    Attributes:
+        function: Function to be called for secure routes after authentication.
+        methods: List of HTTP methods that the secure function will handle.
+        route: Type of route to be used for secure routes, either APIWebSocketRoute or APIRoute.
+        path: Path for the secure route, must start with '/'.
+    """
+
+    function: Callable
+    methods: List[APIMethods] = None
+    route: Type[APIWebSocketRoute] | Type[APIRoute]
+    path: str = Field(
+        pattern="^/.*$", description="Path for the secure route, must start with '/'"
+    )
+    timeout: PositiveInt = Field(
+        ge=0, default=300, description="Session timeout in seconds."
+    )
 
 
 class WSSession(BaseModel):

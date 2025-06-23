@@ -150,6 +150,10 @@ def session_check(request: Request = None, websocket: WebSocket = None) -> None:
     ):
         LOGGER.info("Session is valid for host: %s", host)
         return
+    # todo: this will fail all new sessions
+    #   the auth page route will be removed from the app if session1 is valid
+    #   when session2 is created, the auth page route will not be available, and since session2 is not authenticated,
+    #   the content cannot be rendered
     LOGGER.warning("Session is invalid for host: %s", host)
     raise models.RedirectException(
         location=enums.APIEndpoints.fastapi_session,
