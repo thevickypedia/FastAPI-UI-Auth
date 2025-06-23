@@ -3,34 +3,31 @@ from typing import Callable, Dict, List, Optional, Type
 
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field, PositiveInt
+from pydantic import BaseModel, Field
 
 from fastapiauthenticator.enums import APIMethods
 
 templates = Jinja2Templates(directory=pathlib.Path(__file__).parent / "templates")
 
 
-class Params(BaseModel):
+class Parameters(BaseModel):
     """Parameters for the Authenticator class.
 
-    >>> Params
+    >>> Parameters
 
     Attributes:
+        path: Path for the secure route, must start with '/'.
         function: Function to be called for secure routes after authentication.
         methods: List of HTTP methods that the secure function will handle.
         route: Type of route to be used for secure routes, either APIWebSocketRoute or APIRoute.
-        path: Path for the secure route, must start with '/'.
     """
 
-    function: Callable
-    methods: List[APIMethods] = None
-    route: Type[APIWebSocketRoute] | Type[APIRoute]
     path: str = Field(
         pattern="^/.*$", description="Path for the secure route, must start with '/'"
     )
-    timeout: PositiveInt = Field(
-        ge=0, default=300, description="Session timeout in seconds."
-    )
+    function: Callable
+    methods: List[APIMethods] = [APIMethods.GET]
+    route: Type[APIWebSocketRoute] | Type[APIRoute] = APIRoute
 
 
 class WSSession(BaseModel):
@@ -71,15 +68,17 @@ class RedirectException(Exception):
         https://fastapi.tiangolo.com/tutorial/handling-errors/#install-custom-exception-handlers
     """
 
-    def __init__(self, location: str, detail: Optional[str] = ""):
+    def __init__(self, source: str, destination: str, detail: Optional[str] = ""):
         """Instantiates the ``RedirectException`` object with the required parameters.
 
         Args:
-            location: Location for redirect.
+            source: Source from where the redirect is initiated.
+            destination: Location to redirect.
             detail: Reason for redirect.
         """
-        self.location = location
         self.detail = detail
+        self.source = source
+        self.destination = destination
 
 
 ws_session = WSSession()

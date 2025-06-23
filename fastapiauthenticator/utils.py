@@ -2,11 +2,12 @@ import logging
 import secrets
 from typing import Dict, List, NoReturn, Union
 
-from fastapi import WebSocket, status
+from fastapi import status
 from fastapi.exceptions import HTTPException
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.websockets import WebSocket
 
 from fastapiauthenticator import enums, models, secure
 
@@ -23,8 +24,9 @@ def failed_auth_counter(host: str) -> None:
         models.ws_session.invalid[host] += 1
     except KeyError:
         models.ws_session.invalid[host] = 1
-    if models.ws_session.invalid[host] >= 3:
-        raise models.RedirectException(location=enums.APIEndpoints.fastapi_error)
+    # todo: fix this
+    # if models.ws_session.invalid[host] >= 3:
+    #     raise models.RedirectException(location=enums.APIEndpoints.fastapi_error)
 
 
 def redirect_exception_handler(
@@ -44,14 +46,17 @@ def redirect_exception_handler(
     LOGGER.warning("Exception cookies: %s", request.cookies)
     if request.url.path == enums.APIEndpoints.fastapi_verify_login:
         response = JSONResponse(
-            content={"redirect_url": exception.location}, status_code=200
+            content={"redirect_url": exception.destination}, status_code=200
         )
     else:
-        response = RedirectResponse(url=exception.location)
+        response = RedirectResponse(url=exception.destination)
     if exception.detail:
         response.set_cookie(
             "detail", exception.detail.upper(), httponly=True, samesite="strict"
         )
+    response.set_cookie(
+        "X-Requested-By", exception.source, httponly=True, samesite="strict"
+    )
     return response
 
 
@@ -121,43 +126,40 @@ def verify_login(
     raise_error(host)
 
 
-def session_check(request: Request = None, websocket: WebSocket = None) -> None:
+def session_check(api_request: Request = None, api_websocket: WebSocket = None) -> None:
     """Check if the session is still valid.
 
     Args:
-        request: Request containing client information.
-        websocket: WebSocket connection object.
+        api_request: Request containing client information.
+        api_websocket: WebSocket connection object.
 
     Raises:
         HTTPException: If the session is invalid or expired.
     """
-    if request:
-        host = request.client.host
-        session_token = request.cookies.get("session_token")
-    elif websocket:
-        host = websocket.client.host
-        session_token = websocket.cookies.get("session_token")
+    if api_request:
+        request = api_request
+    elif api_websocket:
+        request = api_websocket
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Request or WebSocket connection is required for session check.",
         )
-    stored_token = models.ws_session.client_auth.get(host, {}).get("token")
+    session_token = request.cookies.get("session_token")
+    stored_token = models.ws_session.client_auth.get(request.client.host, {}).get(
+        "token"
+    )
     if (
         stored_token
         and session_token
         and secrets.compare_digest(session_token, stored_token)
     ):
-        LOGGER.info("Session is valid for host: %s", host)
+        LOGGER.info("Session is valid for host: %s", request.client.host)
         return
-    # todo: this will fail all new sessions
-    #   the auth page route will be removed from the app if session1 is valid
-    #   when session2 is created, the auth page route will not be available, and since session2 is not authenticated,
-    #   the content cannot be rendered
-    LOGGER.warning("Session is invalid for host: %s", host)
+    LOGGER.warning("Session is invalid or expired for host: %s", request.client.host)
     raise models.RedirectException(
-        location=enums.APIEndpoints.fastapi_session,
-        detail="Session expired or invalid. Please log in again.",
+        source=request.url.path,
+        destination=enums.APIEndpoints.fastapi_login,
     )
 
 
@@ -172,10 +174,6 @@ def clear_session(request: Request, response: HTMLResponse) -> HTMLResponse:
         HTMLResponse:
         Returns the response object with the session token cleared.
     """
-    for cookie in request.cookies:
-        # Deletes all cookies stored in current session
-        LOGGER.info("Deleting cookie: '%s'", cookie)
-        response.delete_cookie(cookie)
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Authorization"] = ""
     return response
