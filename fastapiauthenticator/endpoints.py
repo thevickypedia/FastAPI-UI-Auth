@@ -15,8 +15,7 @@ def session(request: Request) -> HTMLResponse:
         HTMLResponse:
         Returns an HTML response templated using Jinja2.
     """
-    return utils.clear_session(
-        request,
+    return utils.deauthorize(
         models.templates.TemplateResponse(
             name="session.html",
             context={
@@ -38,8 +37,7 @@ def login(request: Request) -> HTMLResponse:
         HTMLResponse:
         Rendered HTML response for the login page.
     """
-    return utils.clear_session(
-        request,
+    return utils.deauthorize(
         models.templates.TemplateResponse(
             name="index.html",
             context={
@@ -61,8 +59,7 @@ def error(request: Request) -> HTMLResponse:
         HTMLResponse:
         Returns an HTML response templated using Jinja2.
     """
-    return utils.clear_session(
-        request,
+    return utils.deauthorize(
         models.templates.TemplateResponse(
             name="unauthorized.html",
             context={

@@ -38,7 +38,7 @@ class WSSession(BaseModel):
     """
 
     invalid: Dict[str, int] = Field(default_factory=dict)
-    client_auth: Dict[str, Dict[str, int]] = Field(default_factory=dict)
+    client_auth: Dict[str, Dict[str, str | int]] = Field(default_factory=dict)
 
 
 class Fallback(BaseModel):
@@ -68,7 +68,7 @@ class RedirectException(Exception):
         https://fastapi.tiangolo.com/tutorial/handling-errors/#install-custom-exception-handlers
     """
 
-    def __init__(self, source: str, destination: str, detail: Optional[str] = ""):
+    def __init__(self, destination: str, source: str = "/", detail: Optional[str] = ""):
         """Instantiates the ``RedirectException`` object with the required parameters.
 
         Args:

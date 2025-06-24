@@ -14,19 +14,18 @@ from fastapiauthenticator import enums, models, secure
 LOGGER = logging.getLogger("uvicorn.default")
 
 
-def failed_auth_counter(host: str) -> None:
+def failed_auth_counter(request: Request) -> None:
     """Keeps track of failed login attempts from each host, and redirects if failed for 3 or more times.
 
     Args:
-        host: Host header from the request.
+        request: Request object containing client information.
     """
     try:
-        models.ws_session.invalid[host] += 1
+        models.ws_session.invalid[request.client.host] += 1
     except KeyError:
-        models.ws_session.invalid[host] = 1
-    # todo: fix this
-    # if models.ws_session.invalid[host] >= 3:
-    #     raise models.RedirectException(location=enums.APIEndpoints.fastapi_error)
+        models.ws_session.invalid[request.client.host] = 1
+    if models.ws_session.invalid[request.client.host] >= 3:
+        raise models.RedirectException(destination=enums.APIEndpoints.fastapi_error)
 
 
 def redirect_exception_handler(
@@ -42,12 +41,8 @@ def redirect_exception_handler(
         JSONResponse:
         Returns the JSONResponse with content, status code and cookie.
     """
-    LOGGER.warning("Exception headers: %s", request.headers)
-    LOGGER.warning("Exception cookies: %s", request.cookies)
     if request.url.path == enums.APIEndpoints.fastapi_verify_login:
-        response = JSONResponse(
-            content={"redirect_url": exception.destination}, status_code=200
-        )
+        response = JSONResponse(content={"redirect_url": exception.destination})
     else:
         response = RedirectResponse(url=exception.destination)
     if exception.detail:
@@ -60,16 +55,16 @@ def redirect_exception_handler(
     return response
 
 
-def raise_error(host: str) -> NoReturn:
+def raise_error(request: Request) -> NoReturn:
     """Raises a 401 Unauthorized error in case of bad credentials.
 
     Args:
-        host: Host header from the request.
+        request: Request object containing client information.
     """
-    failed_auth_counter(host)
+    failed_auth_counter(request)
     LOGGER.error(
         "Incorrect username or password: %d",
-        models.ws_session.invalid[host],
+        models.ws_session.invalid[request.client.host],
     )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -97,33 +92,42 @@ def extract_credentials(
 
 def verify_login(
     authorization: HTTPAuthorizationCredentials,
-    host: str,
+    request: Request,
     env_username: str,
     env_password: str,
 ) -> Dict[str, Union[str, int]]:
     """Verifies authentication and generates session token for each user.
 
+    Args:
+        authorization: Authorization header from the request.
+        request: Request object containing client information.
+        env_username: Environment variable for the username.
+        env_password: Environment variable for the password.
+
     Returns:
         Dict[str, str]:
         Returns a dictionary with the payload required to create the session token.
     """
-    username, signature, timestamp = extract_credentials(authorization, host)
+    username, signature, timestamp = extract_credentials(
+        authorization, request.client.host
+    )
     if secrets.compare_digest(username, env_username):
         hex_user = secure.hex_encode(env_username)
         hex_pass = secure.hex_encode(env_password)
     else:
         LOGGER.warning("User '%s' not allowed", username)
-        raise_error(host)
+        raise_error(request)
     message = f"{hex_user}{hex_pass}{timestamp}"
     expected_signature = secure.calculate_hash(message)
     if secrets.compare_digest(signature, expected_signature):
-        models.ws_session.invalid[host] = 0
+        models.ws_session.invalid[request.client.host] = 0
         key = secrets.token_urlsafe(64)
-        models.ws_session.client_auth[host] = dict(
+        # fixme: By setting a path instead of timestamp, this can handle path specific sessions
+        models.ws_session.client_auth[request.client.host] = dict(
             username=username, token=key, timestamp=int(timestamp)
         )
-        return models.ws_session.client_auth[host]
-    raise_error(host)
+        return models.ws_session.client_auth[request.client.host]
+    raise_error(request)
 
 
 def session_check(api_request: Request = None, api_websocket: WebSocket = None) -> None:
@@ -156,18 +160,31 @@ def session_check(api_request: Request = None, api_websocket: WebSocket = None) 
     ):
         LOGGER.info("Session is valid for host: %s", request.client.host)
         return
-    LOGGER.warning("Session is invalid or expired for host: %s", request.client.host)
-    raise models.RedirectException(
-        source=request.url.path,
-        destination=enums.APIEndpoints.fastapi_login,
-    )
+    elif not session_token:
+        LOGGER.warning(
+            "Session is invalid or expired for host: %s", request.client.host
+        )
+        raise models.RedirectException(
+            source=request.url.path,
+            destination=enums.APIEndpoints.fastapi_login,
+        )
+    else:
+        LOGGER.warning(
+            "Session token mismatch for host: %s. Expected: %s, Received: %s",
+            request.client.host,
+            stored_token,
+            session_token,
+        )
+        raise models.RedirectException(
+            source=request.url.path,
+            destination=enums.APIEndpoints.fastapi_session,
+        )
 
 
-def clear_session(request: Request, response: HTMLResponse) -> HTMLResponse:
-    """Clear the session token from the response.
+def deauthorize(response: HTMLResponse) -> HTMLResponse:
+    """Remove authorization headers and clear session token from the response.
 
     Args:
-        request: FastAPI ``request`` object.
         response: FastAPI ``response`` object.
 
     Returns:
@@ -176,4 +193,18 @@ def clear_session(request: Request, response: HTMLResponse) -> HTMLResponse:
     """
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Authorization"] = ""
+    response.delete_cookie("session_token")
     return response
+
+
+def clear_session(host: str) -> None:
+    """Clear the session for the given host.
+
+    Args:
+        host: Host header from the request.
+    """
+    if models.ws_session.client_auth.get(host):
+        models.ws_session.client_auth.pop(host)
+        LOGGER.info("Session cleared for host: %s", host)
+    else:
+        LOGGER.warning("No session found for host: %s", host)

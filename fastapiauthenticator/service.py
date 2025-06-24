@@ -1,9 +1,12 @@
 import logging
 import os
+from threading import Timer
 from typing import Dict, List
 
 import dotenv
+from fastapi import status
 from fastapi.applications import FastAPI
+from fastapi.exceptions import HTTPException
 from fastapi.params import Depends
 from fastapi.requests import Request
 from fastapi.responses import Response
@@ -94,24 +97,34 @@ class Authenticator:
         """
         utils.verify_login(
             authorization=authorization,
-            host=request.client.host,
+            request=request,
             env_username=self.username,
             env_password=self.password,
         )
         destination = request.cookies.get("X-Requested-By")
-        parameter = self.route_map.get(destination)
-        LOGGER.info("Setting session timeout for %s seconds", self.timeout)
-        # Set session_token cookie with a timeout, to be used for session validation when redirected
-        response.set_cookie(
-            key="session_token",
-            value=models.ws_session.client_auth[request.client.host].get("token"),
-            httponly=True,
-            samesite="strict",
-            max_age=self.timeout,
+        if parameter := self.route_map.get(destination):
+            LOGGER.info("Setting session timeout for %s seconds", self.timeout)
+            # Set session_token cookie with a timeout, to be used for session validation when redirected
+            response.set_cookie(
+                key="session_token",
+                value=models.ws_session.client_auth[request.client.host].get("token"),
+                httponly=True,
+                samesite="strict",
+                max_age=self.timeout,
+            )
+            response.delete_cookie(key="X-Requested-By")
+            Timer(
+                function=utils.clear_session,
+                args=(request.client.host,),
+                interval=self.timeout,
+            ).start()
+            return {"redirect_url": parameter.path}
+        raise HTTPException(
+            status_code=status.HTTP_417_EXPECTATION_FAILED,
+            detail="Unable to find secure route for the requested path.\n"
+            "Missing cookie: 'X-Requested-By'\n"
+            "Reload the source page to authenticate.",
         )
-        # todo: Session should be cleared at client side after timeout
-        response.delete_cookie(key="X-Requested-By")
-        return {"redirect_url": parameter.path}
 
     def _secure(self) -> None:
         """Create the login and verification routes for the APIAuthenticator."""
