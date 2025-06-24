@@ -1,10 +1,15 @@
 import uvicorn
 from fastapi import FastAPI, status
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.routing import APIRoute
 
 import fastapiauthenticator as auth
+
+
+def root_page() -> RedirectResponse:
+    """Re-direct the user to login page."""
+    return RedirectResponse(url="/sensitive-data", status_code=status.HTTP_302_FOUND)
 
 
 def hello_world() -> JSONResponse:
@@ -22,6 +27,10 @@ def secure_function(_: Request) -> HTMLResponse:
 
 app = FastAPI(
     routes=[
+        APIRoute(
+            path="/",
+            endpoint=root_page,
+        ),
         APIRoute(
             path="/hello",
             endpoint=hello_world,

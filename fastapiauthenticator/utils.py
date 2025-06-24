@@ -1,6 +1,6 @@
 import logging
 import secrets
-from typing import Dict, List, NoReturn, Union
+from typing import List, NoReturn
 
 from fastapi import status
 from fastapi.exceptions import HTTPException
@@ -73,17 +73,12 @@ def raise_error(request: Request) -> NoReturn:
     )
 
 
-def extract_credentials(
-    authorization: HTTPAuthorizationCredentials, host: str
-) -> List[str]:
+def extract_credentials(authorization: HTTPAuthorizationCredentials) -> List[str]:
     """Extract the credentials from ``Authorization`` headers and decode it before returning as a list of strings.
 
     Args:
         authorization: Authorization header from the request.
-        host: Host header from the request.
     """
-    if not authorization:
-        raise_error(host)
     decoded_auth = secure.base64_decode(authorization.credentials)
     # convert hex to a string
     auth = secure.hex_decode(decoded_auth)
@@ -95,7 +90,7 @@ def verify_login(
     request: Request,
     env_username: str,
     env_password: str,
-) -> Dict[str, Union[str, int]]:
+) -> str | NoReturn:
     """Verifies authentication and generates session token for each user.
 
     Args:
@@ -105,12 +100,13 @@ def verify_login(
         env_password: Environment variable for the password.
 
     Returns:
-        Dict[str, str]:
-        Returns a dictionary with the payload required to create the session token.
+        str:
+        Returns the session token.
     """
-    username, signature, timestamp = extract_credentials(
-        authorization, request.client.host
-    )
+    if authorization:
+        username, signature, timestamp = extract_credentials(authorization)
+    else:
+        raise_error(request)
     if secrets.compare_digest(username, env_username):
         hex_user = secure.hex_encode(env_username)
         hex_pass = secure.hex_encode(env_password)
@@ -122,15 +118,14 @@ def verify_login(
     if secrets.compare_digest(signature, expected_signature):
         models.ws_session.invalid[request.client.host] = 0
         key = secrets.token_urlsafe(64)
-        # fixme: By setting a path instead of timestamp, this can handle path specific sessions
-        models.ws_session.client_auth[request.client.host] = dict(
-            username=username, token=key, timestamp=int(timestamp)
-        )
-        return models.ws_session.client_auth[request.client.host]
+        models.ws_session.client_auth[request.client.host] = key
+        return key
     raise_error(request)
 
 
-def session_check(api_request: Request = None, api_websocket: WebSocket = None) -> None:
+def verify_session(
+    api_request: Request = None, api_websocket: WebSocket = None
+) -> None:
     """Check if the session is still valid.
 
     Args:
@@ -150,9 +145,7 @@ def session_check(api_request: Request = None, api_websocket: WebSocket = None) 
             detail="Request or WebSocket connection is required for session check.",
         )
     session_token = request.cookies.get("session_token")
-    stored_token = models.ws_session.client_auth.get(request.client.host, {}).get(
-        "token"
-    )
+    stored_token = models.ws_session.client_auth.get(request.client.host)
     if (
         stored_token
         and session_token

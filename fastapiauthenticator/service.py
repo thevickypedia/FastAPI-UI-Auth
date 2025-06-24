@@ -59,10 +59,6 @@ class Authenticator:
         elif isinstance(params, models.Parameters):
             self.params = [params]
 
-        self.route_map: Dict[str, models.Parameters] = {
-            param.path: param for param in self.params if param.route is APIRoute
-        }
-
         models.fallback.path = fallback_path
         models.fallback.button = fallback_button
 
@@ -95,19 +91,18 @@ class Authenticator:
             Dict[str, str]:
             A dictionary containing the redirect URL to the secure path.
         """
-        utils.verify_login(
+        session_token = utils.verify_login(
             authorization=authorization,
             request=request,
             env_username=self.username,
             env_password=self.password,
         )
-        destination = request.cookies.get("X-Requested-By")
-        if parameter := self.route_map.get(destination):
+        if destination := request.cookies.get("X-Requested-By"):
             LOGGER.info("Setting session timeout for %s seconds", self.timeout)
             # Set session_token cookie with a timeout, to be used for session validation when redirected
             response.set_cookie(
                 key="session_token",
-                value=models.ws_session.client_auth[request.client.host].get("token"),
+                value=session_token,
                 httponly=True,
                 samesite="strict",
                 max_age=self.timeout,
@@ -118,7 +113,7 @@ class Authenticator:
                 args=(request.client.host,),
                 interval=self.timeout,
             ).start()
-            return {"redirect_url": parameter.path}
+            return {"redirect_url": destination}
         raise HTTPException(
             status_code=status.HTTP_417_EXPECTATION_FAILED,
             detail="Unable to find secure route for the requested path.\n"
@@ -154,14 +149,14 @@ class Authenticator:
                 secure_route = APIWebSocketRoute(
                     path=param.path,
                     endpoint=param.function,
-                    dependencies=[Depends(utils.session_check)],
+                    dependencies=[Depends(utils.verify_session)],
                 )
             else:
                 secure_route = APIRoute(
                     path=param.path,
                     endpoint=param.function,
                     methods=["GET"],
-                    dependencies=[Depends(utils.session_check)],
+                    dependencies=[Depends(utils.verify_session)],
                 )
             self.app.routes.append(secure_route)
         self.app.routes.extend([login_route, session_route, verify_route, error_route])
