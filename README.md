@@ -21,24 +21,30 @@ pip install "git+https://github.com/${repo}.git@${latest}"
 ## Usage
 
 ```python
-import fastapiauthenticator
+import fastapiauthenticator as api
 
 from fastapi import FastAPI
 
 app = FastAPI()
 
-
 @app.get("/public")
-def public_route():
+async def public_route():
     return {"message": "This is a public route"}
 
-
-def private_route():
+async def private_route():
     return {"message": "This is a private route"}
 
-
-fastapiauthenticator.Authenticator(app=app, secure_function=private_route)
+api.protect(
+    app=app,
+    params=api.Parameters(
+        path="/private",
+        function=private_route
+    )
+)
 ```
+
+> `FastAPIAuthenticator` supports both `APIRoute` and `APIWebSocketRoute` routes.<br>
+> Refer [samples] directory for different use-cases.
 
 ## Coding Standards
 Docstring format: [`Google`][google-docs] <br>
@@ -80,6 +86,7 @@ Licensed under the [MIT License][license]
 [google-docs]: https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings
 [pep8]: https://www.python.org/dev/peps/pep-0008/
 [isort]: https://pycqa.github.io/isort/
+[samples]: https://github.com/thevickypedia/FastAPIAuthenticator/tree/main/samples
 
 [label-pyversion]: https://img.shields.io/badge/python-3.11%20%7C%203.12-blue
 [label-platform]: https://img.shields.io/badge/Platform-Linux|macOS|Windows-1f425f.svg

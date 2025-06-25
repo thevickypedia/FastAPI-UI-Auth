@@ -42,7 +42,7 @@ class Authenticator:
 
         Args:
             app: FastAPI application instance to which the authenticator will be added.
-            params: Parameters for the secure routes, can be a single `Parameters` object or a list of `Parameters`.
+            params: Parameters for the secure routes can be a single `Parameters` object or a list of `Parameters`.
             timeout: Session timeout in seconds, default is 300 seconds (5 minutes).
             username: Username for authentication, can be set via environment variable 'USERNAME'.
             password: Password for authentication, can be set via environment variable 'PASSWORD'.

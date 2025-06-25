@@ -16,8 +16,9 @@ version = { attr = "fastapiauthenticator.version.version" }
 
 [project.optional-dependencies]
 dev = [
+    "websockets==15.0.*",
     "pre-commit==4.2.*",
-    "uvicorn==0.34.*"
+    "uvicorn==0.34.*",
 ]
 
 [build-system]
