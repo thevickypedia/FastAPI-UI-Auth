@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+v0.1.1 (06/24/2025)
+-------------------
+- **chore**: Reduces overhead and removes code redundancy
+- **Full Changelog**: https://github.com/thevickypedia/FastAPIAuthenticator/compare/v0.1.0...v0.1.1
+
 v0.1.0 (06/23/2025)
 -------------------
 - **feature**: Includes support for websockets authentication

@@ -60,3 +60,12 @@ repos:
     hooks:
       - id: isort
         args: [ --profile, black ]
+
+  - repo: local
+    hooks:
+      - id: gitverse
+        name: generate release notes
+        entry: gitverse-release reverse -f release_notes.rst -t 'Release Notes'
+        language: python
+        pass_filenames: false
+        always_run: true
