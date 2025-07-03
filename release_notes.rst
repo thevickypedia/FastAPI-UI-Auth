@@ -1,6 +1,12 @@
 Release Notes
 =============
 
+v0.2.0 (07/03/2025)
+-------------------
+- **feature**: Includes an option to pass custom logger
+- **chore**: Redefined project structure to adapt pypi packaging
+- **Full Changelog**: https://github.com/thevickypedia/FastAPIAuthenticator/compare/v0.1.1...v0.2.0
+
 v0.1.1 (06/24/2025)
 -------------------
 - **chore**: Reduces overhead and removes code redundancy
