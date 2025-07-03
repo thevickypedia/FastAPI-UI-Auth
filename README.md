@@ -100,8 +100,8 @@ Licensed under the [MIT License][license]
 [label-actions-pypi]: https://github.com/thevickypedia/FastAPI-UI-Auth/actions/workflows/python-publish.yml/badge.svg
 [label-pypi]: https://img.shields.io/pypi/v/FastAPI-UI-Auth
 [label-pypi-format]: https://img.shields.io/pypi/format/FastAPI-UI-Auth
-[label-pypi-status]: https://img.shields.io/pypi/status/FastAPI-UI-Auth
-[label-pypi-package]: https://img.shields.io/badge/Pypi%20Package-FastAPI-UI-Auth-blue?style=for-the-badge&logo=Python
+[label-pypi-status]: https://img.shields.io/pypi/status/FastAPI_UI_Auth
+[label-pypi-package]: https://img.shields.io/badge/Pypi%20Package-FastAPI_UI_Auth-blue?style=for-the-badge&logo=Python
 [label-pyversion]: https://img.shields.io/badge/python-3.11%20%7C%203.12-blue
 [label-platform]: https://img.shields.io/badge/Platform-Linux|macOS|Windows-1f425f.svg
 [release-notes]: https://github.com/thevickypedia/FastAPI-UI-Auth/blob/main/release_notes.rst

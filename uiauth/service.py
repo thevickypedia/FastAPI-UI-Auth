@@ -1,5 +1,4 @@
 import logging
-import os
 from threading import Timer
 from typing import Dict, List
 
@@ -13,10 +12,9 @@ from fastapi.responses import Response
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from uiauth import endpoints, enums, models, utils
+from uiauth import endpoints, enums, logger, models, utils
 
 dotenv.load_dotenv(dotenv_path=dotenv.find_dotenv(), override=True)
-LOGGER = logging.getLogger("uvicorn.default")
 BEARER_AUTH = HTTPBearer()
 
 
@@ -33,10 +31,11 @@ class FastAPIUIAuth:
         app: FastAPI,
         params: models.Parameters | List[models.Parameters],
         timeout: int = 300,
-        username: str = os.environ.get("USERNAME"),
-        password: str = os.environ.get("PASSWORD"),
+        username: str = None,
+        password: str = None,
         fallback_button: str = models.fallback.button,
         fallback_path: str = models.fallback.path,
+        custom_logger: logging.Logger = None,
     ):
         """Initialize the APIAuthenticator with the FastAPI app and secure function.
 
@@ -48,8 +47,9 @@ class FastAPIUIAuth:
             password: Password for authentication, can be set via environment variable 'PASSWORD'.
             fallback_button: Title for the fallback button, defaults to "LOGIN".
             fallback_path: Fallback path to redirect to in case of session timeout or invalid session.
+            custom_logger: Custom logger instance, defaults to the custom logger.
         """
-        assert all((username, password)), "'username' and 'password' are mandatory."
+        models.env = models.EnvConfig(username=username, password=password)
         assert fallback_path.startswith("/"), "Fallback path must start with '/'"
 
         self.app = app
@@ -68,11 +68,15 @@ class FastAPIUIAuth:
             handler=utils.redirect_exception_handler,
         )
 
-        self.username = username
-        self.password = password
+        if custom_logger:
+            assert isinstance(
+                custom_logger, logging.Logger
+            ), "Custom logger must be an instance of logging.Logger"
+            logger.CUSTOM_LOGGER = custom_logger
         self.timeout = timeout
 
         self._secure()
+        logger.CUSTOM_LOGGER.debug("Endpoints registered: %s", len(self.params))
 
     def _verify_auth(
         self,
@@ -94,11 +98,11 @@ class FastAPIUIAuth:
         session_token = utils.verify_login(
             authorization=authorization,
             request=request,
-            env_username=self.username,
-            env_password=self.password,
         )
         if destination := request.cookies.get("X-Requested-By"):
-            LOGGER.info("Setting session timeout for %s seconds", self.timeout)
+            logger.CUSTOM_LOGGER.info(
+                "Setting session timeout for %s seconds", self.timeout
+            )
             # Set session_token cookie with a timeout, to be used for session validation when redirected
             response.set_cookie(
                 key="session_token",

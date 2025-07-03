@@ -1,4 +1,3 @@
-import logging
 import secrets
 from typing import List, NoReturn
 
@@ -9,9 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.websockets import WebSocket
 
-from uiauth import enums, models, secure
-
-LOGGER = logging.getLogger("uvicorn.default")
+from uiauth import enums, logger, models, secure
 
 
 def failed_auth_counter(request: Request) -> None:
@@ -62,7 +59,7 @@ def raise_error(request: Request) -> NoReturn:
         request: Request object containing client information.
     """
     failed_auth_counter(request)
-    LOGGER.error(
+    logger.CUSTOM_LOGGER.error(
         "Incorrect username or password: %d",
         models.ws_session.invalid[request.client.host],
     )
@@ -88,16 +85,12 @@ def extract_credentials(authorization: HTTPAuthorizationCredentials) -> List[str
 def verify_login(
     authorization: HTTPAuthorizationCredentials,
     request: Request,
-    env_username: str,
-    env_password: str,
 ) -> str | NoReturn:
     """Verifies authentication and generates session token for each user.
 
     Args:
         authorization: Authorization header from the request.
         request: Request object containing client information.
-        env_username: Environment variable for the username.
-        env_password: Environment variable for the password.
 
     Returns:
         str:
@@ -107,11 +100,11 @@ def verify_login(
         username, signature, timestamp = extract_credentials(authorization)
     else:
         raise_error(request)
-    if secrets.compare_digest(username, env_username):
-        hex_user = secure.hex_encode(env_username)
-        hex_pass = secure.hex_encode(env_password)
+    if secrets.compare_digest(username, models.env.username):
+        hex_user = secure.hex_encode(models.env.username)
+        hex_pass = secure.hex_encode(models.env.password)
     else:
-        LOGGER.warning("User '%s' not allowed", username)
+        logger.CUSTOM_LOGGER.warning("User '%s' not allowed", models.env.username)
         raise_error(request)
     message = f"{hex_user}{hex_pass}{timestamp}"
     expected_signature = secure.calculate_hash(message)
@@ -151,10 +144,10 @@ def verify_session(
         and session_token
         and secrets.compare_digest(session_token, stored_token)
     ):
-        LOGGER.info("Session is valid for host: %s", request.client.host)
+        logger.CUSTOM_LOGGER.info("Session is valid for host: %s", request.client.host)
         return
     elif not session_token:
-        LOGGER.warning(
+        logger.CUSTOM_LOGGER.warning(
             "Session is invalid or expired for host: %s", request.client.host
         )
         raise models.RedirectException(
@@ -162,7 +155,7 @@ def verify_session(
             destination=enums.APIEndpoints.fastapi_login,
         )
     else:
-        LOGGER.warning(
+        logger.CUSTOM_LOGGER.warning(
             "Session token mismatch for host: %s. Expected: %s, Received: %s",
             request.client.host,
             stored_token,
@@ -198,6 +191,6 @@ def clear_session(host: str) -> None:
     """
     if models.ws_session.client_auth.get(host):
         models.ws_session.client_auth.pop(host)
-        LOGGER.info("Session cleared for host: %s", host)
+        logger.CUSTOM_LOGGER.info("Session cleared for host: %s", host)
     else:
-        LOGGER.warning("No session found for host: %s", host)
+        logger.CUSTOM_LOGGER.warning("No session found for host: %s", host)
