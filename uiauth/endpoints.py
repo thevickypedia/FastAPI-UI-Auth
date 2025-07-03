@@ -1,8 +1,8 @@
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
 
-from fastapiauthenticator import enums, models, utils
-from fastapiauthenticator.version import version
+from uiauth import enums, models, utils
+from uiauth.version import version
 
 
 def session(request: Request) -> HTMLResponse:

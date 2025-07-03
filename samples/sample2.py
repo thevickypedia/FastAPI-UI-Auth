@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.routing import APIWebSocketRoute
 
-import fastapiauthenticator as auth
+import uiauth
 
 app = FastAPI()
 
@@ -81,18 +81,18 @@ async def send_wave_command(command: str):
     return {"status": f"Command '{command}' sent."}
 
 
-auth.protect(
+uiauth.protect(
     app=app,
     params=[
-        auth.Parameters(
+        uiauth.Parameters(
             function=get_siriwave_js,
             path="/siriwave.js",
         ),
-        auth.Parameters(
+        uiauth.Parameters(
             function=index,
             path="/",
         ),
-        auth.Parameters(
+        uiauth.Parameters(
             function=websocket_endpoint,
             route=APIWebSocketRoute,
             path="/ws",

@@ -4,4 +4,4 @@ venv
 dist/
 .DS_Store
 __pycache__/
-FastAPIAuthenticator.egg-info/
+FastAPI_UI_Auth.egg-info/

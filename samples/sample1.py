@@ -4,7 +4,7 @@ from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.routing import APIRoute
 
-import fastapiauthenticator as auth
+import uiauth
 
 
 def root_page() -> RedirectResponse:
@@ -38,9 +38,9 @@ app = FastAPI(
         ),
     ]
 )
-auth.protect(
+uiauth.protect(
     app=app,
-    params=auth.Parameters(
+    params=uiauth.Parameters(
         path="/sensitive-data",
         function=secure_function,
     ),

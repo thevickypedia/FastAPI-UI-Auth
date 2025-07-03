@@ -13,7 +13,7 @@ from fastapi.responses import Response
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from fastapiauthenticator import endpoints, enums, models, utils
+from uiauth import endpoints, enums, models, utils
 
 dotenv.load_dotenv(dotenv_path=dotenv.find_dotenv(), override=True)
 LOGGER = logging.getLogger("uvicorn.default")
@@ -21,10 +21,10 @@ BEARER_AUTH = HTTPBearer()
 
 
 # noinspection PyDefaultArgument
-class Authenticator:
-    """Authenticator is a FastAPI integration that provides authentication for secure routes.
+class FastAPIUIAuth:
+    """FastAPIUIAuth is a FastAPI integration that provides authentication for secure routes.
 
-    >>> Authenticator
+    >>> FastAPIUIAuth
 
     """
 

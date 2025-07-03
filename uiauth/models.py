@@ -5,7 +5,7 @@ from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from fastapiauthenticator.enums import APIMethods
+from uiauth.enums import APIMethods
 
 templates = Jinja2Templates(directory=pathlib.Path(__file__).parent / "templates")
 

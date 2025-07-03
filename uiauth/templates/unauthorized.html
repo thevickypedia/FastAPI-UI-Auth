@@ -51,7 +51,7 @@
                 overflow: hidden;
             }
         </style>
-        <div style="position: fixed; text-align:center; height: 100%; width: 100%; background-color: #151515">
+        <div style="position: fixed; text-align:center; height: 100%; width: 100%; background-color: #151515;">
             <h2 style="margin-top:5%">This page requires JavaScript
                 to be enabled.
                 <br><br>
@@ -64,12 +64,12 @@
     </noscript>
 </head>
 <body>
-<h2 style="margin-top:5%">{{ reason }}</h2>
-<h3>Authentication doesn't last forever ¯\_(ツ)_/¯ </h3>
+<h2 style="margin-top:5%">LOGIN FAILED</h2>
+<h3>USER ERROR - REPLACE USER</h3>
 <p>
-    <img src="https://thevickypedia.github.io/open-source/images/gif/shattered_fusion.gif"
-         onerror="this.src='https://vigneshrao.com/open-source/images/gif/shattered_fusion.gif'"
-         width="200" height="200" alt="Image" class="center">
+    <img src="https://thevickypedia.github.io/open-source/images/gif/lockscape.gif"
+         onerror="this.src='https://vigneshrao.com/open-source/images/gif/lockscape.gif'"
+         width="200" height="170" alt="Image" class="center">
 </p>
 <button style="text-align:center" onClick="window.location.href = '{{ fallback_path }}';">{{ fallback_button }}</button>
 <br>
@@ -79,8 +79,8 @@
 </body>
 <footer>
     <div class="footer">
-        FastAPIAuthenticator - {{ version }}<br>
-        <a href="https://github.com/thevickypedia/FastAPIAuthenticator">https://github.com/thevickypedia/FastAPIAuthenticator</a>
+        FastAPI-UI-Auth - {{ version }}<br>
+        <a href="https://github.com/thevickypedia/FastAPI-UI-Auth">https://github.com/thevickypedia/FastAPI-UI-Auth</a>
     </div>
 </footer>
 </html>

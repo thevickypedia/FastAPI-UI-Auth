@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.websockets import WebSocket
 
-from fastapiauthenticator import enums, models, secure
+from uiauth import enums, models, secure
 
 LOGGER = logging.getLogger("uvicorn.default")
 

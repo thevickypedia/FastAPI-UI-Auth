@@ -6,13 +6,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 
 [tool.setuptools]
-packages = ["fastapiauthenticator", "fastapiauthenticator.templates"]
+packages = ["uiauth", "uiauth.templates"]
 [tool.setuptools.package-data]
-"fastapiauthenticator.templates" = ["*.html"]
+"uiauth.templates" = ["*.html"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
-version = { attr = "fastapiauthenticator.version.version" }
+version = { attr = "uiauth.version.version" }
 
 [project.optional-dependencies]
 dev = [
