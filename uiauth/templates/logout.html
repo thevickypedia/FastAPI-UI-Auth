@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>FastAPI UI Authentication</title>
+    <meta property="og:type" content="Authenticator">
+    <meta name="keywords" content="Python, fastapi, JavaScript, HTML, CSS">
+    <meta name="author" content="Vignesh Rao">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
+    <!-- Favicon.ico and Apple Touch Icon -->
+    <link property="og:image" rel="icon" href="https://thevickypedia.github.io/open-source/images/logo/fastapi.ico">
+    <link property="og:image" rel="apple-touch-icon"
+          href="https://thevickypedia.github.io/open-source/images/logo/fastapi.png">
+    <!-- Font Awesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/fontawesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/solid.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/regular.min.css">
+    <style>
+        img {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        :is(h1, h2, h3, h4, h5, h6) {
+            text-align: center;
+            color: #F0F0F0;
+            font-family: 'Courier New', sans-serif;
+        }
+
+        button {
+            width: 100px;
+            margin: 0 auto;
+            display: block;
+        }
+
+        body {
+            background-color: #151515;
+        }
+
+        footer {
+            bottom: 20px;
+            position: fixed;
+            width: 100%;
+            color: #fff;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: small;
+        }
+    </style>
+    <noscript>
+        <style>
+            body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+            }
+        </style>
+        <div style="position: fixed; text-align:center; height: 100%; width: 100%; background-color: #151515;">
+            <h2 style="margin-top:5%">This page requires JavaScript
+                to be enabled.
+                <br><br>
+                Please refer <a href="https://www.enable-javascript.com/">enable-javascript</a> for how to.
+            </h2>
+            <form>
+                <button type="submit" onClick="<meta httpEquiv='refresh' content='0'>">RETRY</button>
+            </form>
+        </div>
+    </noscript>
+</head>
+<body>
+<h2 style="margin-top:5%">LOGOUT</h2>
+<h3>{{ detail }}</h3>
+<p>
+    <img src="https://thevickypedia.github.io/open-source/images/gif/blended_fusion.gif"
+         onerror="this.src='https://vigneshrao.com/open-source/images/gif/blended_fusion.gif'"
+         width="200" height="200" alt="Image" class="center">
+</p>
+{% if show_login %}
+<button style="text-align:center" onClick="window.location.href = '/monitor';">LOGIN</button>
+{% else %}
+<h3>Please close the session window</h3>
+{% endif %}
+<h4>Click <a href="https://vigneshrao.com/contact">HERE</a> to reach out.</h4>
+</body>
+<footer>
+    <div class="footer">
+        FastAPI-UI-Auth - {{ version }}<br>
+        <a href="https://github.com/thevickypedia/FastAPI-UI-Auth">https://github.com/thevickypedia/FastAPI-UI-Auth</a>
+    </div>
+</footer>
+</html>

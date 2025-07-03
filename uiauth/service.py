@@ -132,6 +132,11 @@ class FastAPIUIAuth:
             endpoint=endpoints.login,
             methods=["GET"],
         )
+        logout_route = APIRoute(
+            path=enums.APIEndpoints.fastapi_logout,
+            endpoint=endpoints.logout,
+            methods=["GET"],
+        )
         error_route = APIRoute(
             path=enums.APIEndpoints.fastapi_error,
             endpoint=endpoints.error,
@@ -163,4 +168,6 @@ class FastAPIUIAuth:
                     dependencies=[Depends(utils.verify_session)],
                 )
             self.app.routes.append(secure_route)
-        self.app.routes.extend([login_route, session_route, verify_route, error_route])
+        self.app.routes.extend(
+            [login_route, logout_route, session_route, verify_route, error_route]
+        )

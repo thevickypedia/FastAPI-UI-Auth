@@ -1,7 +1,8 @@
+from fastapi.exceptions import HTTPException
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
 
-from uiauth import enums, models, utils
+from uiauth import enums, logger, models, utils
 from uiauth.version import version
 
 
@@ -43,6 +44,30 @@ def login(request: Request) -> HTMLResponse:
             context={
                 "request": request,
                 "signin": enums.APIEndpoints.fastapi_verify_login,
+                "version": f"v{version}",
+            },
+        ),
+    )
+
+
+def logout(request: Request) -> HTMLResponse:
+    """Render the logout page with the verification path and version.
+
+    Returns:
+        HTMLResponse:
+        Rendered HTML response for the logout page.
+    """
+    try:
+        utils.verify_session(request)
+    except (models.RedirectException, HTTPException):
+        logger.CUSTOM_LOGGER.warning("Invalid session")
+        return session(request)
+    return utils.deauthorize(
+        models.templates.TemplateResponse(
+            name="logout.html",
+            context={
+                "request": request,
+                "detail": "You have been successfully logged out.",
                 "version": f"v{version}",
             },
         ),
