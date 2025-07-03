@@ -1,5 +1,5 @@
 [project]
-name = "FastAPIAuthenticator"
+name = "FastAPI-UI-Auth"
 dynamic = ["dependencies", "version"]
 description = "Python module to add username and password authentication to specific FastAPI routes"
 readme = "README.md"
