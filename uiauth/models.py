@@ -4,7 +4,7 @@ from typing import Callable, Dict, List, Optional, Type
 
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, Field
 
 from uiauth.enums import APIMethods
 
@@ -32,30 +32,17 @@ def get_env(keys: List[str], default: Optional[str] = None) -> Optional[str]:
 
 
 class EnvConfig(BaseModel):
-    """Configuration for environment variables."""
+    """Configuration for environment variables.
 
-    username: str
-    password: str
+    >>> EnvConfig
 
-    # noinspection PyMethodParameters
-    @field_validator("username", "password", mode="before")
-    def load_user(cls, key: str, field: ValidationInfo) -> str | None:
-        """Load environment variables into the configuration.
+    See Also:
+        - Tries to resolve username and password through kwargs.
+        - Uses environment variables as fallback.
+    """
 
-        Args:
-            key: Environment variable key to check.
-            field: Field information for validation.
-
-        See Also:
-            - This method checks if the environment variable is set and returns its value.
-            - If the key is not set, it attempts to get the value from the environment using a helper function.
-
-        Returns:
-            str | None:
-            Value of the environment variable or None if not set.
-        """
-        if not key:
-            return get_env([field.field_name, field.field_name[:4]])
+    username: str = Field(default_factory=lambda: get_env(("username", "user")))
+    password: str = Field(default_factory=lambda: get_env(("password", "pass")))
 
 
 env = EnvConfig

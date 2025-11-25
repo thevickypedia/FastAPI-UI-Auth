@@ -1,6 +1,12 @@
 Release Notes
 =============
 
+v0.2.1 (11/25/2025)
+-------------------
+- **fix**: Avoid pre-mature validation for username and password fields
+- **chore**: Upgrade requirements
+- **Full Changelog**: https://github.com/thevickypedia/FastAPIAuthenticator/compare/v0.2.0...v0.2.1
+
 v0.2.0 (07/03/2025)
 -------------------
 - **feature**: Includes an option to pass custom logger
