@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+v0.2.2 (02/05/2026)
+-------------------
+- **fix**: Remove dependency version pinning to avoid conflicts
+- **Full Changelog**: https://github.com/thevickypedia/FastAPIAuthenticator/compare/v0.2.1...v0.2.2
+
 v0.2.1 (11/25/2025)
 -------------------
 - **fix**: Avoid pre-mature validation for username and password fields
