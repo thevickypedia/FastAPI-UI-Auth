@@ -1,4 +1,3 @@
 fastapi
 Jinja2
 pydantic
-python-dotenv

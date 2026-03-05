@@ -1,6 +1,6 @@
 import os
 import pathlib
-from typing import Callable, Dict, List, Optional, Type
+from typing import Callable, Dict, Iterable, List, Optional, Type
 
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.templating import Jinja2Templates
@@ -11,38 +11,48 @@ from uiauth.enums import APIMethods
 templates = Jinja2Templates(directory=pathlib.Path(__file__).parent / "templates")
 
 
-def get_env(keys: List[str], default: Optional[str] = None) -> Optional[str]:
-    """Get environment variable value.
-
-    Args:
-        keys: List of environment variable names to check.
-        default: Default value if the environment variable is not set.
-
-    Returns:
-        Value of the environment variable or default value.
-    """
-    for key in keys:
-        if value := os.getenv(key):
-            return value
-        if value := os.getenv(key.upper()):
-            return value
-        if value := os.getenv(key.lower()):
-            return value
-    return default
-
-
 class EnvConfig(BaseModel):
-    """Configuration for environment variables.
+    """Model for environment configuration.
 
     >>> EnvConfig
+
+    """
+
+    username: str
+    password: str
+
+
+def get_cred(keys: Iterable[str], kwargs: Dict[str, str]) -> str | None:
+    """Helper function to retrieve credentials from kwargs or environment variables.
+
+    Args:
+        keys: Iterable of keys to look for in kwargs and environment variables.
+        kwargs: Key-value pairs to search for credentials, takes precedence over environment variables.
+
+    Returns:
+        str | None:
+        The first found credential value or None if not found.
+    """
+    for key in keys:
+        if value := kwargs.get(key) or os.getenv(key):
+            return value
+    return None
+
+
+def env_loader(**kwargs) -> EnvConfig:
+    """Loads environment variables into the EnvConfig model.
 
     See Also:
         - Tries to resolve username and password through kwargs.
         - Uses environment variables as fallback.
-    """
 
-    username: str = Field(default_factory=lambda: get_env(("username", "user")))
-    password: str = Field(default_factory=lambda: get_env(("password", "pass")))
+    Returns:
+        EnvConfig:
+        An instance of EnvConfig with loaded environment variables.
+    """
+    username = get_cred(["username", "USERNAME", "user", "USER"], kwargs)
+    password = get_cred(["password", "PASSWORD", "pass", "PASS"], kwargs)
+    return EnvConfig(username=username, password=password)
 
 
 env = EnvConfig

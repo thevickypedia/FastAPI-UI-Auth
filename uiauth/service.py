@@ -2,7 +2,6 @@ import logging
 from threading import Timer
 from typing import Dict, List
 
-import dotenv
 from fastapi import status
 from fastapi.applications import FastAPI
 from fastapi.exceptions import HTTPException
@@ -14,7 +13,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from uiauth import endpoints, enums, logger, models, utils
 
-dotenv.load_dotenv(dotenv_path=dotenv.find_dotenv(), override=True)
 BEARER_AUTH = HTTPBearer()
 
 
@@ -26,6 +24,9 @@ class FastAPIUIAuth:
 
     """
 
+    # TODO: Consume APIRoute or APIWebSocketRoute directly in params instead of creating them in the _secure method
+    #   Include stricter type validation (if that works)
+    #   Update samples and readme - major version change
     def __init__(
         self,
         app: FastAPI,
@@ -50,15 +51,28 @@ class FastAPIUIAuth:
             custom_logger: Custom logger instance, defaults to the custom logger.
         """
         models.env = models.EnvConfig(username=username, password=password)
-        assert fallback_path.startswith("/"), "Fallback path must start with '/'"
+        assert (
+            models.env.username and models.env.password
+        ), "Username and password must be provided either as arguments or environment variables"
+        assert isinstance(app, FastAPI), "App must be an instance of FastAPI"
 
         self.app = app
 
         if isinstance(params, list):
+            assert len(params) > 0, "No endpoints to register"
+            for param in params:
+                assert isinstance(
+                    param, models.Parameters
+                ), f"{param} must be an instance of models.Parameters"
             self.params = params
         elif isinstance(params, models.Parameters):
             self.params = [params]
+        else:
+            raise ValueError(
+                "Params must be an instance of Parameters or a list of Parameters"
+            )
 
+        assert fallback_path.startswith("/"), "Fallback path must start with '/'"
         models.fallback.path = fallback_path
         models.fallback.button = fallback_button
 
