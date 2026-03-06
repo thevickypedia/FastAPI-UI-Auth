@@ -28,6 +28,7 @@ pip install FastAPI-UI-Auth
 import uiauth
 
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 
 app = FastAPI()
 
@@ -40,9 +41,9 @@ async def private_route():
 
 uiauth.protect(
     app=app,
-    params=uiauth.Parameters(
+    routes=APIRoute(
         path="/private",
-        function=private_route
+        endpoint=private_route
     )
 )
 ```

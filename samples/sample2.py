@@ -3,7 +3,7 @@ import pathlib
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.routing import APIWebSocketRoute
+from fastapi.routing import APIRoute, APIWebSocketRoute
 
 import uiauth
 
@@ -83,18 +83,17 @@ async def send_wave_command(command: str):
 
 uiauth.protect(
     app=app,
-    params=[
-        uiauth.Parameters(
-            function=get_siriwave_js,
+    routes=[
+        APIRoute(
+            endpoint=get_siriwave_js,
             path="/siriwave.js",
         ),
-        uiauth.Parameters(
-            function=index,
+        APIRoute(
+            endpoint=index,
             path="/",
         ),
-        uiauth.Parameters(
-            function=websocket_endpoint,
-            route=APIWebSocketRoute,
+        APIWebSocketRoute(
+            endpoint=websocket_endpoint,
             path="/ws",
         ),
     ],

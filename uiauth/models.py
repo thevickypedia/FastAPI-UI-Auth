@@ -1,12 +1,9 @@
 import os
 import pathlib
-from typing import Callable, Dict, Iterable, List, Optional, Type
+from typing import Dict, Iterable, Optional
 
-from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
-
-from uiauth.enums import APIMethods
 
 templates = Jinja2Templates(directory=pathlib.Path(__file__).parent / "templates")
 
@@ -56,26 +53,6 @@ def env_loader(**kwargs) -> EnvConfig:
 
 
 env = EnvConfig
-
-
-class Parameters(BaseModel):
-    """Parameters for the Authenticator class.
-
-    >>> Parameters
-
-    Attributes:
-        path: Path for the secure route, must start with '/'.
-        function: Function to be called for secure routes after authentication.
-        methods: List of HTTP methods that the secure function will handle.
-        route: Type of route to be used for secure routes, either APIWebSocketRoute or APIRoute.
-    """
-
-    path: str = Field(
-        pattern="^/.*$", description="Path for the secure route, must start with '/'"
-    )
-    function: Callable
-    methods: List[APIMethods] = [APIMethods.GET]
-    route: Type[APIWebSocketRoute] | Type[APIRoute] = APIRoute
 
 
 class WSSession(BaseModel):

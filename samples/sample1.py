@@ -40,13 +40,13 @@ app = FastAPI(
 )
 uiauth.protect(
     app=app,
-    params=uiauth.Parameters(
+    routes=APIRoute(
         path="/sensitive-data",
-        function=secure_function,
+        endpoint=secure_function,
     ),
     fallback_button="NAVIGATE",
     fallback_path="/hello",
-    timeout=3,
+    timeout=30,
 )
 
 if __name__ == "__main__":

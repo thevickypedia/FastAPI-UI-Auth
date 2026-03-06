@@ -2,12 +2,7 @@ import logging
 from threading import Timer
 from typing import Dict, List
 
-from fastapi import status
-from fastapi.applications import FastAPI
-from fastapi.exceptions import HTTPException
-from fastapi.params import Depends
-from fastapi.requests import Request
-from fastapi.responses import Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -30,7 +25,7 @@ class FastAPIUIAuth:
     def __init__(
         self,
         app: FastAPI,
-        params: models.Parameters | List[models.Parameters],
+        routes: APIRoute | APIWebSocketRoute | List[APIRoute] | List[APIWebSocketRoute],
         timeout: int = 300,
         username: str = None,
         password: str = None,
@@ -42,7 +37,7 @@ class FastAPIUIAuth:
 
         Args:
             app: FastAPI application instance to which the authenticator will be added.
-            params: Parameters for the secure routes can be a single `Parameters` object or a list of `Parameters`.
+            routes: APIRoute or APIWebSocketRoute instance(s) representing the routes to be protected by authentication.
             timeout: Session timeout in seconds, default is 300 seconds (5 minutes).
             username: Username for authentication, can be set via environment variable 'USERNAME'.
             password: Password for authentication, can be set via environment variable 'PASSWORD'.
@@ -50,7 +45,10 @@ class FastAPIUIAuth:
             fallback_path: Fallback path to redirect to in case of session timeout or invalid session.
             custom_logger: Custom logger instance, defaults to the custom logger.
         """
-        models.env = models.EnvConfig(username=username, password=password)
+        assert (
+            isinstance(timeout, int) and timeout > 29
+        ), "Timeout must be an integer at least 30 seconds"
+        models.env = models.env_loader(username=username, password=password)
         assert (
             models.env.username and models.env.password
         ), "Username and password must be provided either as arguments or environment variables"
@@ -58,18 +56,18 @@ class FastAPIUIAuth:
 
         self.app = app
 
-        if isinstance(params, list):
-            assert len(params) > 0, "No endpoints to register"
-            for param in params:
-                assert isinstance(
-                    param, models.Parameters
-                ), f"{param} must be an instance of models.Parameters"
-            self.params = params
-        elif isinstance(params, models.Parameters):
-            self.params = [params]
+        if isinstance(routes, list):
+            assert len(routes) > 0, "No endpoints to register"
+            for route in routes:
+                assert isinstance(route, APIRoute) or isinstance(
+                    route, APIWebSocketRoute
+                ), f"{route} must be an instance of APIRoute or APIWebSocketRoute"
+            self.routes = routes
+        elif isinstance(routes, APIRoute) or isinstance(routes, APIWebSocketRoute):
+            self.routes = [routes]
         else:
             raise ValueError(
-                "Params must be an instance of Parameters or a list of Parameters"
+                "Routes must be an instance of APIRoute or APIWebSocketRoute or a list of them"
             )
 
         assert fallback_path.startswith("/"), "Fallback path must start with '/'"
@@ -90,7 +88,7 @@ class FastAPIUIAuth:
         self.timeout = timeout
 
         self._secure()
-        logger.CUSTOM_LOGGER.debug("Endpoints registered: %s", len(self.params))
+        logger.CUSTOM_LOGGER.debug("Endpoints registered: %s", len(self.routes))
 
     def _verify_auth(
         self,
@@ -166,20 +164,33 @@ class FastAPIUIAuth:
             endpoint=self._verify_auth,
             methods=["POST"],
         )
-        for param in self.params:
-            if param.route is APIWebSocketRoute:
-                # WebSocket routes will not have a login path, they will be protected by session check
+        protected_paths = {route.path for route in self.routes}
+        conflicting = [
+            route for route in self.app.routes
+            if isinstance(route, (APIRoute, APIWebSocketRoute)) and route.path in protected_paths
+        ]
+        for existing in conflicting:
+            logger.CUSTOM_LOGGER.warning(
+                "Route %s already registered in the app, removing and re-registering with authentication",
+                existing.path,
+            )
+            self.app.routes.remove(existing)
+        for route in self.routes:
+            # WebSocket routes will not have a login path, they will be protected by session check
+            if isinstance(route, APIWebSocketRoute):
                 secure_route = APIWebSocketRoute(
-                    path=param.path,
-                    endpoint=param.function,
-                    dependencies=[Depends(utils.verify_session)],
+                    path=route.path,
+                    endpoint=route.endpoint,
+                    dependencies=list(route.dependencies)
+                    + [Depends(utils.verify_session)],
                 )
             else:
                 secure_route = APIRoute(
-                    path=param.path,
-                    endpoint=param.function,
-                    methods=["GET"],
-                    dependencies=[Depends(utils.verify_session)],
+                    path=route.path,
+                    endpoint=route.endpoint,
+                    methods=list(route.methods) if route.methods else ["GET"],
+                    dependencies=list(route.dependencies)
+                    + [Depends(utils.verify_session)],
                 )
             self.app.routes.append(secure_route)
         self.app.routes.extend(
