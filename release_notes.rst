@@ -1,6 +1,14 @@
 Release Notes
 =============
 
+v0.3.0 (03/05/2026)
+-------------------
+- **refactor**: Replace custom ``APIParameters`` with actual ``FastAPI`` route objects
+- **perf** Replace ``Timer`` to track session expiry with a server side validation
+- **tests** Add unit tests with 100% code coverage
+- **ci**: Add Github Actions workflow for testing and code coverage
+- **Full Changelog**: https://github.com/thevickypedia/FastAPI-UI-Auth/compare/v0.2.3...v0.3.0
+
 v0.2.3 (03/05/2026)
 -------------------
 - **fix**: Avoid env vars overriding kwargs
