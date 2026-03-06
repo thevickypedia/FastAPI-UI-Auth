@@ -15,7 +15,7 @@ jobs:
         run: pip install ".[test]"
 
       - name: Run tests with coverage
-        run: pytest --cov=uiauth --cov-report=xml --cov-report=html --cov-report=term-missing -v
+        run: python -m pytest --cov=uiauth --cov-report=xml --cov-report=html --cov-report=term-missing -v
 
       - name: Write coverage summary to job summary
         run: |
