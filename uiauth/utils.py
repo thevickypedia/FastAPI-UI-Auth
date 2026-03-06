@@ -1,4 +1,5 @@
 import secrets
+import time
 from typing import List, NoReturn
 
 from fastapi import status
@@ -111,7 +112,6 @@ def verify_login(
     if secrets.compare_digest(signature, expected_signature):
         models.ws_session.invalid[request.client.host] = 0
         key = secrets.token_urlsafe(64)
-        models.ws_session.client_auth[request.client.host] = key
         return key
     raise_error(request)
 
@@ -138,14 +138,25 @@ def verify_session(
             detail="Request or WebSocket connection is required for session check.",
         )
     session_token = request.cookies.get("session_token")
-    stored_token = models.ws_session.client_auth.get(request.client.host)
+    stored = models.ws_session.client_auth.get(request.client.host)
     if (
-        stored_token
+        stored
         and session_token
-        and secrets.compare_digest(session_token, stored_token)
+        and secrets.compare_digest(session_token, stored["token"])
     ):
-        logger.CUSTOM_LOGGER.info("Session is valid for host: %s", request.client.host)
-        return
+        if time.time() < stored["expires_at"]:
+            logger.CUSTOM_LOGGER.info(
+                "Session is valid for host: %s", request.client.host
+            )
+            return
+        models.ws_session.client_auth.pop(request.client.host, None)
+        logger.CUSTOM_LOGGER.warning(
+            "Session expired for host: %s", request.client.host
+        )
+        raise models.RedirectException(
+            source=request.url.path,
+            destination=enums.APIEndpoints.fastapi_login,
+        )
     elif not session_token:
         logger.CUSTOM_LOGGER.warning(
             "Session is invalid or expired for host: %s", request.client.host
@@ -158,7 +169,7 @@ def verify_session(
         logger.CUSTOM_LOGGER.warning(
             "Session token mismatch for host: %s. Expected: %s, Received: %s",
             request.client.host,
-            stored_token,
+            stored.get("token", "None"),
             session_token,
         )
         raise models.RedirectException(

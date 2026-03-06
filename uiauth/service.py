@@ -1,5 +1,5 @@
 import logging
-from threading import Timer
+import time
 from typing import Dict, List
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -19,9 +19,6 @@ class FastAPIUIAuth:
 
     """
 
-    # TODO: Consume APIRoute or APIWebSocketRoute directly in params instead of creating them in the _secure method
-    #   Include stricter type validation (if that works)
-    #   Update samples and readme - major version change
     def __init__(
         self,
         app: FastAPI,
@@ -123,12 +120,11 @@ class FastAPIUIAuth:
                 samesite="strict",
                 max_age=self.timeout,
             )
+            models.ws_session.client_auth[request.client.host] = {
+                "token": session_token,
+                "expires_at": time.time() + self.timeout,
+            }
             response.delete_cookie(key="X-Requested-By")
-            Timer(
-                function=utils.clear_session,
-                args=(request.client.host,),
-                interval=self.timeout,
-            ).start()
             return {"redirect_url": destination}
         raise HTTPException(
             status_code=status.HTTP_417_EXPECTATION_FAILED,
@@ -166,8 +162,10 @@ class FastAPIUIAuth:
         )
         protected_paths = {route.path for route in self.routes}
         conflicting = [
-            route for route in self.app.routes
-            if isinstance(route, (APIRoute, APIWebSocketRoute)) and route.path in protected_paths
+            route
+            for route in self.app.routes
+            if isinstance(route, (APIRoute, APIWebSocketRoute))
+            and route.path in protected_paths
         ]
         for existing in conflicting:
             logger.CUSTOM_LOGGER.warning(
