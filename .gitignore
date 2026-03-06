@@ -5,3 +5,5 @@ dist/
 .DS_Store
 __pycache__/
 FastAPI_UI_Auth.egg-info/
+build/
+.coverage

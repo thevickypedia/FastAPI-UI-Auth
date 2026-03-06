@@ -20,6 +20,21 @@ dev = [
     "pre-commit==4.2.*",
     "uvicorn==0.34.*",
 ]
+test = [
+    "pytest",
+    "pytest-cov",
+    "httpx",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["uiauth"]
+omit = ["uiauth/version.py"]
+
+[tool.coverage.report]
+show_missing = true
 
 [build-system]
 requires = ["setuptools", "wheel"]
