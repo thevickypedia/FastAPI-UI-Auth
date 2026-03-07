@@ -1,3 +1,4 @@
+import inspect
 import logging
 import time
 from typing import Dict, List
@@ -179,23 +180,15 @@ class FastAPIUIAuth:
             )
             self.app.routes.remove(existing)
         for route in self.routes:
-            # WebSocket routes will not have a login path, they will be protected by session check
-            if isinstance(route, APIWebSocketRoute):
-                secure_route = APIWebSocketRoute(
-                    path=route.path,
-                    endpoint=route.endpoint,
-                    dependencies=list(route.dependencies)
-                    + [Depends(utils.verify_session)],
-                )
-            else:
-                secure_route = APIRoute(
-                    path=route.path,
-                    endpoint=route.endpoint,
-                    methods=list(route.methods) if route.methods else ["GET"],
-                    dependencies=list(route.dependencies)
-                    + [Depends(utils.verify_session)],
-                    include_in_schema=route.include_in_schema,
-                )
+            kwargs = {
+                name: getattr(route, name)
+                for name in inspect.signature(route.__class__.__init__).parameters
+                if name != "self" and hasattr(route, name)
+            }
+            kwargs["dependencies"] = list(route.dependencies) + [
+                Depends(utils.verify_session)
+            ]
+            secure_route = route.__class__(**kwargs)
             self.app.routes.append(secure_route)
         self.app.routes.extend(
             [login_route, logout_route, session_route, verify_route, error_route]
