@@ -1,6 +1,15 @@
 Release Notes
 =============
 
+v0.3.1 (03/06/2026)
+-------------------
+- **fix**: Avoid ``AttributeError`` when the server restarts and there are no stored tokens in memory
+- **refactor**: Hide all routes added by ``FastAPI-UI-Auth`` in the documentation schema
+- **feat**: Dynamically mirror route attributes when registering secure routes
+- **ci**: Ensure tests pass before publishing and fix intermittent workflow failures
+- **ci**: Avoid running unit tests during version bumps
+- **Full Changelog**: https://github.com/thevickypedia/FastAPI-UI-Auth/compare/v0.3.0...v0.3.1
+
 v0.3.0 (03/05/2026)
 -------------------
 - **refactor**: Replace custom ``APIParameters`` with actual ``FastAPI`` route objects
