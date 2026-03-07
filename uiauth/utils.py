@@ -138,14 +138,14 @@ def verify_session(
             detail="Request or WebSocket connection is required for session check.",
         )
     session_token = request.cookies.get("session_token")
-    stored = models.ws_session.client_auth.get(request.client.host)
+    stored = models.ws_session.client_auth.get(request.client.host, {})
     if (
-        stored
+        stored.get("token")
         and session_token
         and secrets.compare_digest(session_token, stored["token"])
     ):
         if time.time() < stored["expires_at"]:
-            logger.CUSTOM_LOGGER.info(
+            logger.CUSTOM_LOGGER.debug(
                 "Session is valid for host: %s", request.client.host
             )
             return
