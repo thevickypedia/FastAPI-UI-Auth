@@ -6,7 +6,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  run-tests:
+    uses: ./.github/workflows/code-coverage.yml
+
   pypi-publisher:
+    needs: run-tests
     runs-on: thevickypedia-default
     steps:
       - uses: thevickypedia/pypi-publisher@v3
