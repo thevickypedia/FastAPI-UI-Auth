@@ -139,26 +139,31 @@ class FastAPIUIAuth:
             path=enums.APIEndpoints.fastapi_login,
             endpoint=endpoints.login,
             methods=["GET"],
+            include_in_schema=False,
         )
         logout_route = APIRoute(
             path=enums.APIEndpoints.fastapi_logout,
             endpoint=endpoints.logout,
             methods=["GET"],
+            include_in_schema=False,
         )
         error_route = APIRoute(
             path=enums.APIEndpoints.fastapi_error,
             endpoint=endpoints.error,
             methods=["GET"],
+            include_in_schema=False,
         )
         session_route = APIRoute(
             path=enums.APIEndpoints.fastapi_session,
             endpoint=endpoints.session,
             methods=["GET"],
+            include_in_schema=False,
         )
         verify_route = APIRoute(
             path=enums.APIEndpoints.fastapi_verify_login,
             endpoint=self._verify_auth,
             methods=["POST"],
+            include_in_schema=False,
         )
         protected_paths = {route.path for route in self.routes}
         conflicting = [
@@ -189,6 +194,7 @@ class FastAPIUIAuth:
                     methods=list(route.methods) if route.methods else ["GET"],
                     dependencies=list(route.dependencies)
                     + [Depends(utils.verify_session)],
+                    include_in_schema=route.include_in_schema,
                 )
             self.app.routes.append(secure_route)
         self.app.routes.extend(
