@@ -19,6 +19,7 @@ def session(request: Request) -> HTMLResponse:
     return utils.deauthorize(
         models.templates.TemplateResponse(
             name="session.html",
+            request=request,
             context={
                 "request": request,
                 "signin": enums.APIEndpoints.fastapi_login,
@@ -41,6 +42,7 @@ def login(request: Request) -> HTMLResponse:
     return utils.deauthorize(
         models.templates.TemplateResponse(
             name="index.html",
+            request=request,
             context={
                 "request": request,
                 "signin": enums.APIEndpoints.fastapi_verify_login,
@@ -65,6 +67,7 @@ def logout(request: Request) -> HTMLResponse:
     return utils.deauthorize(
         models.templates.TemplateResponse(
             name="logout.html",
+            request=request,
             context={
                 "request": request,
                 "detail": "You have been successfully logged out.",
@@ -87,6 +90,7 @@ def error(request: Request) -> HTMLResponse:
     return utils.deauthorize(
         models.templates.TemplateResponse(
             name="unauthorized.html",
+            request=request,
             context={
                 "request": request,
                 "signin": enums.APIEndpoints.fastapi_login,
