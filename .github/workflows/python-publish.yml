@@ -16,3 +16,14 @@ jobs:
       - uses: thevickypedia/pypi-publisher@v3
         env:
           token: ${{ secrets.PYPI_TOKEN }}
+
+  release-notes:
+    needs: pypi-publisher
+    runs-on: thevickypedia-default
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: thevickypedia/update-release-notes@v2
+        env:
+          git_token: ${{ secrets.GIT_TOKEN }}
