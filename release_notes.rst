@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+v0.3.2 (03/22/2026)
+-------------------
+- fix: Fix missing ``request`` param for ``TemplateResponse`` required by ``starlette==1.0.0``
+- **Full Changelog**: https://github.com/thevickypedia/FastAPI-UI-Auth/compare/v0.3.1...v0.3.2
+
 v0.3.1 (03/06/2026)
 -------------------
 - **fix**: Avoid ``AttributeError`` when the server restarts and there are no stored tokens in memory
