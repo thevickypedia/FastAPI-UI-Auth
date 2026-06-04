@@ -1,6 +1,7 @@
 import inspect
 import logging
 import time
+import warnings
 from typing import Dict, List
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -91,9 +92,9 @@ class FastAPIUIAuth:
         self._secure()
         logger.CUSTOM_LOGGER.debug("Endpoints registered: %s", len(self.routes))
         if not models.env.totp_token:
-            logger.CUSTOM_LOGGER.warning(
-                "No TOTP token provided, skipping 2FA. This is not recommended for production use."
-            )
+            warning = "No TOTP token provided, skipping 2FA. This is not recommended for production use."
+            logger.CUSTOM_LOGGER.warning(warning)
+            warnings.warn(warning, UserWarning)
 
     def _verify_auth(
         self,

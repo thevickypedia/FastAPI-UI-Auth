@@ -43,7 +43,7 @@ def get_cred(keys: Iterable[str], kwargs: Dict[str, str]) -> str | None:
         The first found credential value or None if not found.
     """
     for key in keys:
-        if value := kwargs.get(key) or os.getenv(key):
+        if value := kwargs.get(key, os.getenv(key)):
             return value
     return None
 
