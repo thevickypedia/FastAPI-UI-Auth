@@ -25,10 +25,10 @@ class FastAPIUIAuth:
         self,
         app: FastAPI,
         routes: APIRoute | APIWebSocketRoute | List[APIRoute] | List[APIWebSocketRoute],
-        timeout: int = 300,
         username: str = None,
         password: str = None,
         totp_token: str = None,
+        session_timeout: int = 300,
         fallback_button: str = models.fallback.button,
         fallback_path: str = models.fallback.path,
         custom_logger: logging.Logger = None,
@@ -38,16 +38,20 @@ class FastAPIUIAuth:
         Args:
             app: FastAPI application instance to which the authenticator will be added.
             routes: APIRoute or APIWebSocketRoute instance(s) representing the routes to be protected by authentication.
-            timeout: Session timeout in seconds, default is 300 seconds (5 minutes).
             username: Username for authentication, can be set via environment variable 'USERNAME'.
             password: Password for authentication, can be set via environment variable 'PASSWORD'.
+            totp_token: TOTP token for 2FA, can be set via environment variable 'TOTP_TOKEN'.
+            session_timeout: Session timeout in seconds, default is 300 seconds (5 minutes).
             fallback_button: Title for the fallback button, defaults to "LOGIN".
             fallback_path: Fallback path to redirect to in case of session timeout or invalid session.
             custom_logger: Custom logger instance, defaults to the custom logger.
         """
+        # TODO:
+        #   1. Add a reset option in the UI to refresh page after cookie expires or session becomes invalid
+        #   2. Add support for multiple MFA methods (email, Telegram, etc.) and allow create models for it
         assert (
-            isinstance(timeout, int) and timeout > 29
-        ), "Timeout must be an integer at least 30 seconds"
+            isinstance(session_timeout, int) and 29 < session_timeout < 86_401
+        ), "Timeout must be an integer between 30 seconds and 24 hours (86_400 seconds)"
         models.env = models.env_loader(
             username=username, password=password, totp_token=totp_token
         )
@@ -87,7 +91,7 @@ class FastAPIUIAuth:
                 custom_logger, logging.Logger
             ), "Custom logger must be an instance of logging.Logger"
             logger.CUSTOM_LOGGER = custom_logger
-        self.timeout = timeout
+        self.session_timeout = session_timeout
 
         self._secure()
         logger.CUSTOM_LOGGER.debug("Endpoints registered: %s", len(self.routes))
@@ -119,7 +123,7 @@ class FastAPIUIAuth:
         )
         if destination := request.cookies.get("X-Requested-By"):
             logger.CUSTOM_LOGGER.info(
-                "Setting session timeout for %s seconds", self.timeout
+                "Setting session timeout for %s seconds", self.session_timeout
             )
             # Set session_token cookie with a timeout, to be used for session validation when redirected
             response.set_cookie(
@@ -127,11 +131,11 @@ class FastAPIUIAuth:
                 value=session_token,
                 httponly=True,
                 samesite="strict",
-                max_age=self.timeout,
+                max_age=self.session_timeout,
             )
             models.ws_session.client_auth[request.client.host] = {
                 "token": session_token,
-                "expires_at": time.time() + self.timeout,
+                "expires_at": time.time() + self.session_timeout,
             }
             response.delete_cookie(key="X-Requested-By")
             return {"redirect_url": destination}
