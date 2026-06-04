@@ -47,6 +47,7 @@ def login(request: Request) -> HTMLResponse:
                 "request": request,
                 "signin": enums.APIEndpoints.fastapi_verify_login,
                 "version": f"v{version}",
+                "totp_enabled": models.env.totp_token is not None,
             },
         ),
     )

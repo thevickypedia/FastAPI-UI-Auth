@@ -1,11 +1,22 @@
 import os
 import pathlib
-from typing import Dict, Iterable, Optional
+from datetime import datetime
+from typing import Dict, Iterable, NoReturn, Optional
 
+import pyotp
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 templates = Jinja2Templates(directory=pathlib.Path(__file__).parent / "templates")
+
+
+def validate_totp_secret(token) -> None | NoReturn:
+    """Validate the provided TOTP secret token."""
+    totp = pyotp.TOTP(token)
+    # Sampler can also be generated with totp.now()
+    now = datetime.now()
+    sampler = totp.generate_otp(totp.timecode(now))
+    assert totp.verify(sampler, for_time=now), "Invalid authenticatorToken!"
 
 
 class EnvConfig(BaseModel):
@@ -17,6 +28,7 @@ class EnvConfig(BaseModel):
 
     username: str
     password: str
+    totp_token: str | None = None
 
 
 def get_cred(keys: Iterable[str], kwargs: Dict[str, str]) -> str | None:
@@ -49,7 +61,9 @@ def env_loader(**kwargs) -> EnvConfig:
     """
     username = get_cred(["username", "USERNAME", "user", "USER"], kwargs)
     password = get_cred(["password", "PASSWORD", "pass", "PASS"], kwargs)
-    return EnvConfig(username=username, password=password)
+    if totp_token := get_cred(["totp_token", "TOTP_TOKEN", "totp", "TOTP"], kwargs):
+        validate_totp_secret(totp_token)
+    return EnvConfig(username=username, password=password, totp_token=totp_token)
 
 
 env = EnvConfig

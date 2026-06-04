@@ -4,6 +4,8 @@ import hashlib
 import string
 from typing import Any
 
+import pyotp
+
 UNICODE_PREFIX = (
     base64.b64decode(b"XA==").decode(encoding="ascii")
     + string.ascii_letters[20]
@@ -39,3 +41,9 @@ def hex_encode(value: str):
         .decode(encoding="utf-8")
         .split(sep="-")
     )
+
+
+def verify_totp(token: str, otp: str) -> bool:
+    """Verify the provided OTP against the TOTP token."""
+    totp = pyotp.TOTP(token)
+    return totp.verify(otp)

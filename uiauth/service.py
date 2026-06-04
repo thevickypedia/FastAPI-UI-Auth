@@ -27,6 +27,7 @@ class FastAPIUIAuth:
         timeout: int = 300,
         username: str = None,
         password: str = None,
+        totp_token: str = None,
         fallback_button: str = models.fallback.button,
         fallback_path: str = models.fallback.path,
         custom_logger: logging.Logger = None,
@@ -46,7 +47,9 @@ class FastAPIUIAuth:
         assert (
             isinstance(timeout, int) and timeout > 29
         ), "Timeout must be an integer at least 30 seconds"
-        models.env = models.env_loader(username=username, password=password)
+        models.env = models.env_loader(
+            username=username, password=password, totp_token=totp_token
+        )
         assert (
             models.env.username and models.env.password
         ), "Username and password must be provided either as arguments or environment variables"
@@ -87,6 +90,10 @@ class FastAPIUIAuth:
 
         self._secure()
         logger.CUSTOM_LOGGER.debug("Endpoints registered: %s", len(self.routes))
+        if not models.env.totp_token:
+            logger.CUSTOM_LOGGER.warning(
+                "No TOTP token provided, skipping 2FA. This is not recommended for production use."
+            )
 
     def _verify_auth(
         self,

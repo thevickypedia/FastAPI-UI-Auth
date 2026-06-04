@@ -61,12 +61,12 @@ def raise_error(request: Request) -> NoReturn:
     """
     failed_auth_counter(request)
     logger.CUSTOM_LOGGER.error(
-        "Incorrect username or password: %d",
+        "Invalid credentials: %d",
         models.ws_session.invalid[request.client.host],
     )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Incorrect username or password",
+        detail="Invalid credentials",
         headers=None,
     )
 
@@ -97,8 +97,13 @@ def verify_login(
         str:
         Returns the session token.
     """
+    otp = None
     if authorization:
-        username, signature, timestamp = extract_credentials(authorization)
+        # Raises ValueError if the credentials are not in the expected format
+        if models.env.totp_token:
+            username, signature, otp, timestamp = extract_credentials(authorization)
+        else:
+            username, signature, timestamp = extract_credentials(authorization)
     else:
         raise_error(request)
     if secrets.compare_digest(username, models.env.username):
@@ -110,6 +115,13 @@ def verify_login(
     message = f"{hex_user}{hex_pass}{timestamp}"
     expected_signature = secure.calculate_hash(message)
     if secrets.compare_digest(signature, expected_signature):
+        if models.env.totp_token:
+            if not otp:
+                logger.CUSTOM_LOGGER.warning("TOTP token is required but not provided")
+                raise_error(request)
+            if not secure.verify_totp(token=models.env.totp_token, otp=otp):
+                logger.CUSTOM_LOGGER.warning("Invalid TOTP token provided")
+                raise_error(request)
         models.ws_session.invalid[request.client.host] = 0
         key = secrets.token_urlsafe(64)
         return key

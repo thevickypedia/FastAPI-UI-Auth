@@ -149,6 +149,10 @@
                 <input type="password" id="password" name="password" required>
                 <i class="fa-regular fa-eye" id="eye"></i>
             </div>
+            {% if totp_enabled %}
+                <label for="otp">TOTP:</label>
+                <input type="text" id="otp" name="otp" required>
+            {% endif %}
             <button type="submit" onclick="submitToAPI(event)">Sign In</button>
         </form>
     </div>
@@ -203,7 +207,16 @@
         let hex_pass = await ConvertStringToHex(password);
         let timestamp = Math.round(new Date().getTime() / 1000);
         let hash = await CalculateHash(hex_user, hex_pass, timestamp)
-        let authHeaderValue = hex_user + ',' + hash + ',' + timestamp;
+        {% if totp_enabled %}
+            const otp = $("#otp").val();
+            if (otp === "") {
+                alert("ERROR: TOTP is enabled, please provide the TOTP value to authenticate your request!");
+                return false;
+            }
+            let authHeaderValue = hex_user + ',' + hash + ',' + otp + ',' + timestamp;
+        {% else %}
+            let authHeaderValue = hex_user + ',' + hash + ',' + timestamp;
+        {% endif %}
         let origin = window.location.origin
         $.ajax({
             method: "POST",
