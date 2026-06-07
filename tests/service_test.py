@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from starlette.testclient import TestClient
 
+import uiauth
 from uiauth import models
 from uiauth.enums import APIEndpoints
 from uiauth.service import FastAPIUIAuth
@@ -193,7 +194,7 @@ def test_init_fallback_path_without_slash_raises(base_app, protected_route):
             routes=protected_route,
             username=TEST_USERNAME,
             password=TEST_PASSWORD,
-            fallback_path="no-slash",
+            fallback=uiauth.Fallback(path="no-slash"),
         )
 
 
@@ -203,8 +204,7 @@ def test_init_custom_fallback(base_app, protected_route):
         routes=protected_route,
         username=TEST_USERNAME,
         password=TEST_PASSWORD,
-        fallback_button="GO BACK",
-        fallback_path="/home",
+        fallback=uiauth.Fallback(button="GO BACK", path="/home"),
     )
     assert models.fallback.button == "GO BACK"
     assert models.fallback.path == "/home"

@@ -491,7 +491,7 @@ class TestServiceInit:
         with pytest.raises(AssertionError):
             uiauth.protect(app=app, routes=self._minimal_route(),
                            username=USERNAME, password=PASSWORD,
-                           fallback_path="noslash")
+                           fallback=uiauth.Fallback(path="no-slash"))
 
     def test_custom_logger_invalid_type_raises(self):
         import uiauth

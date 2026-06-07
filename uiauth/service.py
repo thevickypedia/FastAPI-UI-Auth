@@ -24,13 +24,12 @@ class FastAPIUIAuth:
     def __init__(
         self,
         app: FastAPI,
-        routes: APIRoute | APIWebSocketRoute | List[APIRoute] | List[APIWebSocketRoute],
+        routes: APIRoute | APIWebSocketRoute | List[APIRoute | APIWebSocketRoute],
         username: str = None,
         password: str = None,
         totp_token: str = None,
         session_timeout: int = 300,
-        fallback_button: str = models.fallback.button,
-        fallback_path: str = models.fallback.path,
+        fallback: models.Fallback = None,
         custom_logger: logging.Logger = None,
     ):
         """Initialize the APIAuthenticator with the FastAPI app and secure function.
@@ -42,8 +41,7 @@ class FastAPIUIAuth:
             password: Password for authentication, can be set via environment variable 'PASSWORD'.
             totp_token: TOTP token for 2FA, can be set via environment variable 'TOTP_TOKEN'.
             session_timeout: Session timeout in seconds, default is 300 seconds (5 minutes).
-            fallback_button: Title for the fallback button, defaults to "LOGIN".
-            fallback_path: Fallback path to redirect to in case of session timeout or invalid session.
+            fallback: Fallback configuration for redirection, that takes a 'button' and 'path' as arguments.
             custom_logger: Custom logger instance, defaults to the custom logger.
         """
         # TODO:
@@ -76,9 +74,11 @@ class FastAPIUIAuth:
                 "Routes must be an instance of APIRoute or APIWebSocketRoute or a list of them"
             )
 
-        assert fallback_path.startswith("/"), "Fallback path must start with '/'"
-        models.fallback.path = fallback_path
-        models.fallback.button = fallback_button
+        if fallback:
+            assert fallback.path.startswith("/"), "Fallback path must start with '/'"
+            models.fallback = fallback
+        else:
+            models.fallback = models.Fallback()
 
         # noinspection PyTypeChecker
         self.app.add_exception_handler(

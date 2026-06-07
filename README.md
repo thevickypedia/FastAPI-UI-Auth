@@ -25,6 +25,7 @@ pip install FastAPI-UI-Auth
 ## Usage
 
 ```python
+import logging
 import uiauth
 
 from fastapi import FastAPI
@@ -40,11 +41,19 @@ async def private_route():
     return {"message": "This is a private route"}
 
 uiauth.protect(
+    # ------ MANDATORY ARGS ------
     app=app,
     routes=APIRoute(
         path="/private",
         endpoint=private_route
-    )
+    ),
+    username="admin",
+    password="password123",
+    # ------ OPTIONAL ARGS ------
+    totp_token="JBSWSECUREDK3PXP",
+    session_timeout=3600,
+    fallback=uiauth.Fallback(button="GO BACK", path="/public"),
+    custom_logger=logging.getLogger("my_custom_logger")
 )
 ```
 

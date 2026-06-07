@@ -121,4 +121,4 @@ class RedirectException(Exception):
 
 
 ws_session = WSSession()
-fallback = Fallback()
+fallback = Fallback

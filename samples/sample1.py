@@ -44,9 +44,8 @@ uiauth.protect(
         path="/sensitive-data",
         endpoint=secure_function,
     ),
-    fallback_button="NAVIGATE",
-    fallback_path="/hello",
-    timeout=30,
+    fallback=uiauth.Fallback(button="NAVIGATE", path="/hello"),
+    session_timeout=30,
 )
 
 if __name__ == "__main__":
