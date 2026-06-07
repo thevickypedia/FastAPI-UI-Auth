@@ -60,6 +60,10 @@ uiauth.protect(
 > `FastAPI-UI-Auth` supports both `APIRoute` and `APIWebSocketRoute` routes.<br>
 > Refer [samples] directory for different use-cases.
 
+> [!NOTE]  
+> Use the CLI command `uiauth-totp` to generate a TOTP token and a QR code to scan with an authenticator app
+> (e.g. Google Authenticator, Authy, etc.) for 2FA support.
+
 ## Coding Standards
 Docstring format: [`Google`][google-docs] <br>
 Styling conventions: [`PEP 8`][pep8] and [`isort`][isort]

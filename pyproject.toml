@@ -19,6 +19,7 @@ dev = [
     "websockets==15.0.*",
     "pre-commit==4.2.*",
     "uvicorn==0.49.*",
+    "qrcode[pil]==8.2.*",
 ]
 test = [
     "pytest",
@@ -39,3 +40,13 @@ show_missing = true
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project.scripts]
+uiauth_totp = "uiauth:_totp"
+"uiauth-totp" = "uiauth:_totp"
+
+[project.urls]
+Homepage = "https://github.com/thevickypedia/FastAPI-UI-Auth"
+Source = "https://github.com/thevickypedia/FastAPI-UI-Auth"
+"Bug Tracker" = "https://github.com/thevickypedia/FastAPI-UI-Auth/issues"
+"Release Notes" = "https://github.com/thevickypedia/FastAPI-UI-Auth/blob/main/release_notes.rst"
