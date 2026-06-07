@@ -1,29 +1,44 @@
 name: pypi-publish
 
 on:
-  release:
-    types: [ published ]
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/version.py"
 
 jobs:
+  pre-commit:
+    runs-on: thevickypedia-default
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          pip install pre-commit
+          export PATH="$HOME/.local/bin:$PATH"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          pre-commit run --all-files
+        shell: bash
+
   run-tests:
+    needs: pre-commit
     uses: ./.github/workflows/code-coverage.yml
 
   pypi-publisher:
     needs: run-tests
     runs-on: thevickypedia-default
+    outputs:
+      version: ${{ steps.publish.outputs.version }}
     steps:
-      - uses: thevickypedia/pypi-publisher@v3
+      - uses: actions/checkout@v6
+      - uses: thevickypedia/pypi-publisher@v5
+        id: publish
         env:
           token: ${{ secrets.PYPI_TOKEN }}
 
-  release-notes:
+  release:
     needs: pypi-publisher
-    runs-on: thevickypedia-default
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: thevickypedia/update-release-notes@v2
-        env:
-          git_token: ${{ secrets.GIT_TOKEN }}
+    uses: ./.github/workflows/release.yml
+    with:
+      project_version: ${{ needs.pypi-publisher.outputs.version }}
+    secrets: inherit
