@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from starlette.testclient import TestClient
 
-from uiauth import models, secure
+from uiauth import models
 from uiauth.enums import APIEndpoints
 from uiauth.service import FastAPIUIAuth
 from tests.conftest import TEST_USERNAME, TEST_PASSWORD, build_credentials
@@ -36,7 +36,7 @@ def auth_app():
         routes=APIRoute(path="/protected", endpoint=protected_endpoint),
         username=TEST_USERNAME,
         password=TEST_PASSWORD,
-        timeout=300,
+        session_timeout=300,
     )
     return _app
 
@@ -58,7 +58,7 @@ def test_init_valid(base_app, protected_route):
         username=TEST_USERNAME,
         password=TEST_PASSWORD,
     )
-    assert auth.timeout == 300
+    assert auth.session_timeout == 300
 
 
 def test_init_custom_timeout(base_app, protected_route):
@@ -67,9 +67,9 @@ def test_init_custom_timeout(base_app, protected_route):
         routes=protected_route,
         username=TEST_USERNAME,
         password=TEST_PASSWORD,
-        timeout=60,
+        session_timeout=60,
     )
-    assert auth.timeout == 60
+    assert auth.session_timeout == 60
 
 
 def test_init_timeout_too_low_raises(base_app, protected_route):
@@ -79,7 +79,7 @@ def test_init_timeout_too_low_raises(base_app, protected_route):
             routes=protected_route,
             username=TEST_USERNAME,
             password=TEST_PASSWORD,
-            timeout=10,
+            session_timeout=10,
         )
 
 
@@ -89,9 +89,9 @@ def test_init_timeout_boundary_passes(base_app, protected_route):
         routes=protected_route,
         username=TEST_USERNAME,
         password=TEST_PASSWORD,
-        timeout=30,
+        session_timeout=30,
     )
-    assert auth.timeout == 30
+    assert auth.session_timeout == 30
 
 
 def test_init_timeout_not_int_raises(base_app, protected_route):
@@ -101,7 +101,7 @@ def test_init_timeout_not_int_raises(base_app, protected_route):
             routes=protected_route,
             username=TEST_USERNAME,
             password=TEST_PASSWORD,
-            timeout="300",
+            session_timeout="300",
         )
 
 

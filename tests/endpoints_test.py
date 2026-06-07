@@ -24,7 +24,7 @@ def app_client():
         routes=APIRoute(path="/protected", endpoint=protected),
         username=TEST_USERNAME,
         password=TEST_PASSWORD,
-        timeout=300,
+        session_timeout=300,
     )
     _client = TestClient(_app, raise_server_exceptions=False, follow_redirects=False)
     return _app, _client
