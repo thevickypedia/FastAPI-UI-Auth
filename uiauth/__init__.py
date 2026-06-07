@@ -31,7 +31,7 @@ def _totp() -> None:
         print(
             f"Usage: uiauth-totp [arbitrary-command]\nOptions (and corresponding behavior):{choices}"
         )
-        exit(0)
+        raise SystemExit(0)
 
     app = None
     user = None
@@ -76,7 +76,7 @@ def _totp() -> None:
             "Missing required options. Using default values for missing options:\n"
             f"Please choose from {choices}"
         )
-        exit(1)
+        raise SystemExit(1)
 
     config = OTPConfig(
         qr_filename=filename, authenticator_user=user, authenticator_app=app
