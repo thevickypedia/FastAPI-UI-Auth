@@ -1,6 +1,24 @@
 Release Notes
 =============
 
+v0.4.0 (06/07/2026)
+-------------------
+- `2e05b47 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/2e05b471a20bb96ec962e367ca64b6a5c1d6c770>`_ chore: Release ``v0.4.0``
+- `64d4913 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/64d4913595e64ce3991aad5ddbde52edd009352b>`_ test: Update unit tests to extend code coverage
+- `9ac9664 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/9ac9664bc808cc875883af62f418af55e04b97d2>`_ lint: Run and update linter
+- `f21e579 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/f21e579f247d5af1b5d1e46a0e3792c4814592e4>`_ ci: Update GHA workflows for a fully automated release process
+- `9f6935b <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/9f6935bb649aaf966de5c4a2edda59d059b31e3d>`_ feat: Add an option to generate TOTP token via CLi
+- `7e7ef38 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/7e7ef38cbf5265854975a6789801e13f0fb75093>`_ chore: Update ``.gitignore``
+- `86307dc <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/86307dc8c7115857bb29d8c81bcc92de63858f79>`_ refactor: Add fallback options as a model parameter instead of individual strings
+- `6fd4a7b <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/6fd4a7ba176c5b42ba8625b40db5daf9b1f5fd4a>`_ test: Update existing test cases and add new ones for TOTP
+- `9f11049 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/9f1104903e446cca047695b83d8f990e5fb51763>`_ chore: Set an upper bound value for session timeout
+- `5452cb9 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/5452cb9ea0b4701e1fffce9515c4b94f099aa895>`_ chore: Add a warning message when instantiated without 2FA using TOTP
+- `092574d <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/092574d351a9692f634ed6c6a19387972a565fe0>`_ ci: Extend python-publish GHA to include auto-update release notes
+- `1584b11 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/1584b116451c60eabaf85dad34d72c74466551b7>`_ chore: Bump dev and test dependencies
+- `ecf11fb <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/ecf11fb316e3a1c1fc8135b2c0bf9d39a5931559>`_ ci: Bump dependency versions in code coverage GHA
+- `f2dd92f <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/f2dd92f02be84e79774182f41ab27b820685387b>`_ chore: Update release notes manually
+- `0574ed9 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/0574ed9c7113f197f571f0e541f6c127df97d6ab>`_ feat: Implement an OTP auth mechanism for optional extra layer of protection
+
 v0.3.2 (03/22/2026)
 -------------------
 - fix: Fix missing ``request`` param for ``TemplateResponse`` required by ``starlette==1.0.0``
