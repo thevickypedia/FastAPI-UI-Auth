@@ -1,6 +1,13 @@
 Release Notes
 =============
 
+v0.4.1 (08/31/2026)
+-------------------
+- `174df43 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/174df43ef7cfddb3c0aff0a95b9a15e79a46ebcb>`_ chore: Release ``v0.4.1``
+- `71a96e5 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/71a96e5d5d73d0d11303f34ed9e8f32658c0113b>`_ refactor: Update docstrings and type-hints
+- `84fe0f7 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/84fe0f703d299f6d09db6ddbdb8db4d9a3f9bc97>`_ perf: Log the request path in session validation
+- `e696c2d <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/e696c2df294758478774a4eed202abe0d8ebb020>`_ Update release notes
+
 v0.4.0 (06/07/2026)
 -------------------
 - `2e05b47 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/2e05b471a20bb96ec962e367ca64b6a5c1d6c770>`_ chore: Release ``v0.4.0``
