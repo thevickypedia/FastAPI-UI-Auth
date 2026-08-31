@@ -158,12 +158,12 @@ def verify_session(
     ):
         if time.time() < stored["expires_at"]:
             logger.CUSTOM_LOGGER.debug(
-                "Session is valid for host: %s", request.client.host
+                "Session is valid for host: %s; requesting: %s", request.client.host, request.url.path
             )
             return
         models.ws_session.client_auth.pop(request.client.host, None)
         logger.CUSTOM_LOGGER.warning(
-            "Session expired for host: %s", request.client.host
+            "Session expired for host: %s; requesting: %s", request.client.host, request.url.path
         )
         raise models.RedirectException(
             source=request.url.path,
@@ -171,7 +171,7 @@ def verify_session(
         )
     elif not session_token:
         logger.CUSTOM_LOGGER.warning(
-            "Session is invalid or expired for host: %s", request.client.host
+            "Session is invalid or expired for host: %s; requesting: %s", request.client.host, request.url.path
         )
         raise models.RedirectException(
             source=request.url.path,
