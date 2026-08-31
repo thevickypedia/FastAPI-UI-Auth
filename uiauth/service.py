@@ -25,12 +25,12 @@ class FastAPIUIAuth:
         self,
         app: FastAPI,
         routes: APIRoute | APIWebSocketRoute | List[APIRoute | APIWebSocketRoute],
-        username: str = None,
-        password: str = None,
-        totp_token: str = None,
+        username: str | None = None,
+        password: str | None = None,
+        totp_token: str | None = None,
         session_timeout: int = 300,
-        fallback: models.Fallback = None,
-        custom_logger: logging.Logger = None,
+        fallback: models.Fallback | None = None,
+        custom_logger: logging.Logger | None = None,
     ):
         """Initialize the APIAuthenticator with the FastAPI app and secure function.
 
@@ -103,15 +103,15 @@ class FastAPIUIAuth:
     def _verify_auth(
         self,
         request: Request,
+        response: Response,
         authorization: HTTPAuthorizationCredentials = Depends(BEARER_AUTH),
-        response: Response = None,
     ) -> Dict[str, str]:
         """Verify the authentication credentials and redirect to the secure route.
 
         Args:
             request: Request object containing client information.
-            authorization: Authorization credentials from the request, provided by FastAPI's HTTPBearer.
             response: Response object containing the response from FastAPI's HTTPBearer.
+            authorization: Authorization credentials from the request, provided by FastAPI's HTTPBearer.
 
         Returns:
             Dict[str, str]:

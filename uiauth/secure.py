@@ -30,7 +30,7 @@ def base64_decode(value: Any) -> str:
 
 
 def hex_decode(value: Any) -> str:
-    """Convert hex value to a string."""
+    """Convert a hex value to a string."""
     return bytes(value, "utf-8").decode(encoding="unicode_escape")
 
 

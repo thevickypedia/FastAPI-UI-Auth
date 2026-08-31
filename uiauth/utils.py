@@ -13,7 +13,7 @@ from uiauth import enums, logger, models, secure
 
 
 def failed_auth_counter(request: Request) -> None:
-    """Keeps track of failed login attempts from each host, and redirects if failed for 3 or more times.
+    """Keeps track of failed login attempts from each host and redirects if failed for 3 or more times.
 
     Args:
         request: Request object containing client information.
@@ -37,7 +37,7 @@ def redirect_exception_handler(
 
     Returns:
         JSONResponse:
-        Returns the JSONResponse with content, status code and cookie.
+        Returns the JSONResponse with content, status-code and cookie.
     """
     if request.url.path == enums.APIEndpoints.fastapi_verify_login:
         response = JSONResponse(content={"redirect_url": exception.destination})
@@ -87,11 +87,11 @@ def verify_login(
     authorization: HTTPAuthorizationCredentials,
     request: Request,
 ) -> str | NoReturn:
-    """Verifies authentication and generates session token for each user.
+    """Verifies authentication and generates a session token for each user.
 
     Args:
         authorization: Authorization header from the request.
-        request: Request object containing client information.
+        request: ``Request`` object containing client information.
 
     Returns:
         str:
@@ -128,6 +128,7 @@ def verify_login(
     raise_error(request)
 
 
+# noinspection bad-assignment
 def verify_session(
     api_request: Request = None, api_websocket: WebSocket = None
 ) -> None:
@@ -158,12 +159,16 @@ def verify_session(
     ):
         if time.time() < stored["expires_at"]:
             logger.CUSTOM_LOGGER.debug(
-                "Session is valid for host: %s; requesting: %s", request.client.host, request.url.path
+                "Session is valid for host: %s; requesting: %s",
+                request.client.host,
+                request.url.path,
             )
             return
         models.ws_session.client_auth.pop(request.client.host, None)
         logger.CUSTOM_LOGGER.warning(
-            "Session expired for host: %s; requesting: %s", request.client.host, request.url.path
+            "Session expired for host: %s; requesting: %s",
+            request.client.host,
+            request.url.path,
         )
         raise models.RedirectException(
             source=request.url.path,
@@ -171,7 +176,9 @@ def verify_session(
         )
     elif not session_token:
         logger.CUSTOM_LOGGER.warning(
-            "Session is invalid or expired for host: %s; requesting: %s", request.client.host, request.url.path
+            "Session is invalid or expired for host: %s; requesting: %s",
+            request.client.host,
+            request.url.path,
         )
         raise models.RedirectException(
             source=request.url.path,

@@ -71,16 +71,16 @@ def _totp() -> None:
                     else True
                 )
 
-    if not all((app, user)):
+    if app and user:
+        config = OTPConfig(
+            qr_filename=filename, authenticator_user=user, authenticator_app=app
+        )
+    else:
         print(
             "Missing required options. Using default values for missing options:\n"
             f"Please choose from {choices}"
         )
         raise SystemExit(1)
-
-    config = OTPConfig(
-        qr_filename=filename, authenticator_user=user, authenticator_app=app
-    )
 
     print(
         "Using values:\n"
