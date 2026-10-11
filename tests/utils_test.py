@@ -7,10 +7,11 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 
-from uiauth import models, secure, utils
 from uiauth.enums import APIEndpoints
+from uiauth import models, secure, store, utils
 from tests.conftest import (
     build_credentials,
+    failure_count,
     make_mock_request,
     TEST_USERNAME,
     TEST_PASSWORD,
@@ -18,13 +19,13 @@ from tests.conftest import (
 
 
 def make_mock_websocket(
-    cookies: dict = None, path: str = "/ws", host: str = "127.0.0.1"
+    cookies: dict = None, path: str = "/ws", host: str = "127.0.0.1", headers: dict = None
 ) -> SimpleNamespace:
-    """Same rationale as make_mock_request — WebSocket also inherits from Mapping."""
     return SimpleNamespace(
         cookies=cookies or {},
         url=SimpleNamespace(path=path),
         client=SimpleNamespace(host=host),
+        headers=headers or {},
     )
 
 
@@ -39,25 +40,57 @@ def setup_env():
 
 
 def test_failed_auth_counter_creates_entry():
-    request = make_mock_request(host="1.2.3.4")
-    utils.failed_auth_counter(request)
-    assert models.ws_session.invalid["1.2.3.4"] == 1
+    utils.failed_auth_counter(make_mock_request(host="1.2.3.4"))
+    assert failure_count("1.2.3.4") == 1
 
 
 def test_failed_auth_counter_increments():
     request = make_mock_request(host="1.2.3.5")
     utils.failed_auth_counter(request)
     utils.failed_auth_counter(request)
-    assert models.ws_session.invalid["1.2.3.5"] == 2
+    assert failure_count("1.2.3.5") == 2
 
 
-def test_failed_auth_counter_redirects_at_three():
-    request = make_mock_request(host="1.2.3.6")
+def test_failed_auth_counter_keys_on_forwarded_client_ip():
+    models.trusted_proxies = {"10.9.9.9"}
+    request = make_mock_request(host="10.9.9.9", headers={"x-forwarded-for": "5.5.5.5"})
     utils.failed_auth_counter(request)
-    utils.failed_auth_counter(request)
-    with pytest.raises(models.RedirectException) as exc_info:
-        utils.failed_auth_counter(request)
-    assert exc_info.value.destination == APIEndpoints.fastapi_error
+    assert failure_count("5.5.5.5") == 1
+    assert failure_count("10.9.9.9") == 0
+
+
+# ---------------------------------------------------------------------------
+# client_ip
+# ---------------------------------------------------------------------------
+
+
+def test_client_ip_without_forwarded_header():
+    assert utils.client_ip(make_mock_request(host="1.1.1.1")) == "1.1.1.1"
+
+
+def test_client_ip_ignores_forwarded_header_from_untrusted_host():
+    request = make_mock_request(host="1.1.1.1", headers={"x-forwarded-for": "6.6.6.6"})
+    assert utils.client_ip(request) == "1.1.1.1"
+
+
+def test_client_ip_uses_forwarded_header_from_trusted_proxy():
+    models.trusted_proxies = {"10.0.0.5"}
+    request = make_mock_request(host="10.0.0.5", headers={"x-forwarded-for": "7.7.7.7"})
+    assert utils.client_ip(request) == "7.7.7.7"
+
+
+def test_client_ip_skips_trusted_hops_and_spoofed_left_entries():
+    models.trusted_proxies = {"10.0.0.5", "10.0.0.6"}
+    request = make_mock_request(
+        host="10.0.0.5", headers={"x-forwarded-for": "6.6.6.6, 7.7.7.7, 10.0.0.6"}
+    )
+    assert utils.client_ip(request) == "7.7.7.7"
+
+
+def test_client_ip_falls_back_to_host_when_all_hops_trusted():
+    models.trusted_proxies = {"10.0.0.5"}
+    request = make_mock_request(host="10.0.0.5", headers={"x-forwarded-for": "10.0.0.5, "})
+    assert utils.client_ip(request) == "10.0.0.5"
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +109,7 @@ def test_raise_error_increments_counter():
     request = make_mock_request(host="2.2.2.3")
     with pytest.raises(HTTPException):
         utils.raise_error(request)
-    assert models.ws_session.invalid["2.2.2.3"] == 1
-
+    assert failure_count("2.2.2.3") == 1
 
 # ---------------------------------------------------------------------------
 # extract_credentials
@@ -119,13 +151,14 @@ def test_verify_login_valid_returns_token():
     assert len(token) > 0
 
 
-def test_verify_login_resets_invalid_counter():
+def test_verify_login_resets_failure_counter():
     host = "10.0.0.2"
-    models.ws_session.invalid[host] = 2
+    store.record_failure(host)
+    store.record_failure(host)
     creds = build_credentials(TEST_USERNAME, TEST_PASSWORD)
     auth = HTTPAuthorizationCredentials(scheme="bearer", credentials=creds)
     utils.verify_login(authorization=auth, request=make_mock_request(host=host))
-    assert models.ws_session.invalid[host] == 0
+    assert failure_count(host) == 0
 
 
 def test_verify_login_invalid_username():
@@ -175,66 +208,52 @@ def test_verify_login_three_failures_redirect():
 
 
 def test_verify_session_valid():
-    host = "192.168.1.1"
-    token = "valid-session-token"
-    models.ws_session.client_auth[host] = {
-        "token": token,
-        "expires_at": time.time() + 300,
-    }
+    store.add_session("valid-session-token", 300)
     utils.verify_session(
-        api_request=make_mock_request(cookies={"session_token": token}, host=host)
+        api_request=make_mock_request(cookies={"session_token": "valid-session-token"})
     )
 
 
-def test_verify_session_expired_redirects_to_login():
-    host = "192.168.1.2"
-    token = "expired-token"
-    models.ws_session.client_auth[host] = {
-        "token": token,
-        "expires_at": time.time() - 1,
-    }
+def test_verify_session_valid_from_any_host():
+    """Sessions aren't bound to an IP, so another worker/proxy hop still validates."""
+    store.add_session("shared-token", 300)
+    for host in ("192.168.1.1", "172.16.0.9"):
+        utils.verify_session(
+            api_request=make_mock_request(
+                cookies={"session_token": "shared-token"}, host=host
+            )
+        )
+
+
+def test_verify_session_expired_redirects_to_session():
+    store.add_session("expired-token", -1)
     with pytest.raises(models.RedirectException) as exc_info:
         utils.verify_session(
-            api_request=make_mock_request(cookies={"session_token": token}, host=host)
+            api_request=make_mock_request(cookies={"session_token": "expired-token"})
         )
-    assert exc_info.value.destination == APIEndpoints.fastapi_login
-
-
-def test_verify_session_expired_removes_entry():
-    host = "192.168.1.3"
-    token = "expired-token-2"
-    models.ws_session.client_auth[host] = {
-        "token": token,
-        "expires_at": time.time() - 1,
-    }
-    with pytest.raises(models.RedirectException):
-        utils.verify_session(
-            api_request=make_mock_request(cookies={"session_token": token}, host=host)
-        )
-    assert host not in models.ws_session.client_auth
+    assert exc_info.value.destination == APIEndpoints.fastapi_session
 
 
 def test_verify_session_no_cookie_redirects_to_login():
     with pytest.raises(models.RedirectException) as exc_info:
-        utils.verify_session(
-            api_request=make_mock_request(cookies={}, host="192.168.1.4")
-        )
+        utils.verify_session(api_request=make_mock_request(cookies={}))
     assert exc_info.value.destination == APIEndpoints.fastapi_login
 
 
-def test_verify_session_token_mismatch_redirects_to_session():
-    host = "192.168.1.5"
-    models.ws_session.client_auth[host] = {
-        "token": "correct-token",
-        "expires_at": time.time() + 300,
-    }
+def test_verify_session_unknown_token_redirects_to_session():
     with pytest.raises(models.RedirectException) as exc_info:
         utils.verify_session(
-            api_request=make_mock_request(
-                cookies={"session_token": "wrong-token"}, host=host
-            )
+            api_request=make_mock_request(cookies={"session_token": "never-issued"})
         )
     assert exc_info.value.destination == APIEndpoints.fastapi_session
+
+
+def test_verify_session_does_not_log_token(caplog):
+    with pytest.raises(models.RedirectException):
+        utils.verify_session(
+            api_request=make_mock_request(cookies={"session_token": "secret-token"})
+        )
+    assert "secret-token" not in caplog.text
 
 
 def test_verify_session_no_request_raises_400():
@@ -244,20 +263,14 @@ def test_verify_session_no_request_raises_400():
 
 
 def test_verify_session_websocket_valid():
-    host = "192.168.1.6"
-    token = "ws-valid-token"
-    models.ws_session.client_auth[host] = {
-        "token": token,
-        "expires_at": time.time() + 300,
-    }
-    ws = make_mock_websocket(cookies={"session_token": token}, host=host)
+    store.add_session("ws-valid-token", 300)
+    ws = make_mock_websocket(cookies={"session_token": "ws-valid-token"})
     utils.verify_session(api_websocket=ws)  # should not raise
 
 
 def test_verify_session_websocket_no_token():
-    ws = make_mock_websocket(cookies={}, host="192.168.1.7")
     with pytest.raises(models.RedirectException) as exc_info:
-        utils.verify_session(api_websocket=ws)
+        utils.verify_session(api_websocket=make_mock_websocket(cookies={}))
     assert exc_info.value.destination == APIEndpoints.fastapi_login
 
 
@@ -333,12 +346,15 @@ def test_deauthorize_clears_authorization_header():
 # ---------------------------------------------------------------------------
 
 
-def test_clear_session_removes_entry():
-    host = "10.10.10.1"
-    models.ws_session.client_auth[host] = {"token": "abc", "expires_at": 9999999}
-    utils.clear_session(host)
-    assert host not in models.ws_session.client_auth
+def test_clear_session_revokes_token():
+    store.add_session("abc", 300)
+    utils.clear_session("abc")
+    assert not store.session_valid("abc")
 
 
-def test_clear_session_missing_host_does_not_raise():
-    utils.clear_session("nonexistent-host-xyz")  # should not raise
+def test_clear_session_unknown_token_does_not_raise():
+    utils.clear_session("nonexistent-token-xyz")
+
+
+def test_clear_session_none_is_noop():
+    utils.clear_session(None)

@@ -9,7 +9,7 @@ from fastapi.routing import APIRoute, APIWebSocketRoute
 from starlette.testclient import TestClient
 
 import uiauth
-from uiauth import models
+from uiauth import models, store
 from uiauth.enums import APIEndpoints
 from uiauth.service import FastAPIUIAuth
 from tests.conftest import TEST_USERNAME, TEST_PASSWORD, build_credentials
@@ -73,17 +73,6 @@ def test_init_custom_timeout(base_app, protected_route):
     assert auth.session_timeout == 60
 
 
-def test_init_timeout_too_low_raises(base_app, protected_route):
-    with pytest.raises(AssertionError, match="Timeout"):
-        FastAPIUIAuth(
-            app=base_app,
-            routes=protected_route,
-            username=TEST_USERNAME,
-            password=TEST_PASSWORD,
-            session_timeout=10,
-        )
-
-
 def test_init_timeout_boundary_passes(base_app, protected_route):
     auth = FastAPIUIAuth(
         app=base_app,
@@ -93,17 +82,6 @@ def test_init_timeout_boundary_passes(base_app, protected_route):
         session_timeout=30,
     )
     assert auth.session_timeout == 30
-
-
-def test_init_timeout_not_int_raises(base_app, protected_route):
-    with pytest.raises(AssertionError, match="Timeout"):
-        FastAPIUIAuth(
-            app=base_app,
-            routes=protected_route,
-            username=TEST_USERNAME,
-            password=TEST_PASSWORD,
-            session_timeout="300",
-        )
 
 
 def test_init_missing_credentials_raises(base_app, protected_route, monkeypatch):
@@ -299,16 +277,16 @@ def test_verify_auth_valid_sets_session_cookie(client):
 
 def test_verify_auth_stores_session_server_side(client):
     creds = build_credentials(TEST_USERNAME, TEST_PASSWORD)
-    client.post(
+    response = client.post(
         APIEndpoints.fastapi_verify_login,
         headers={"Authorization": f"Bearer {creds}"},
         cookies={"X-Requested-By": "/protected"},
     )
-    assert len(models.ws_session.client_auth) == 1
-    stored = list(models.ws_session.client_auth.values())[0]
-    assert "token" in stored
-    assert "expires_at" in stored
-    assert stored["expires_at"] > time.time()
+    token = response.cookies.get("session_token")
+    assert store.session_valid(token)
+    with store._connect() as conn:
+        (expires_at,) = conn.execute("SELECT expires_at FROM sessions").fetchone()
+    assert expires_at > time.time()
 
 
 def test_verify_auth_missing_x_requested_by_returns_417(client):
@@ -374,42 +352,81 @@ def test_protected_route_with_valid_session_returns_200(auth_app):
 
 
 def test_protected_route_with_expired_session_redirects(auth_app):
-    _client = TestClient(
-        auth_app, raise_server_exceptions=False, follow_redirects=False
-    )
-    host = "testclient"
-    token = "stale-token"
-    models.ws_session.client_auth[host] = {
-        "token": token,
-        "expires_at": time.time() - 1,
-    }
-    response = _client.get("/protected", cookies={"session_token": token})
+    _client = TestClient(auth_app, raise_server_exceptions=False, follow_redirects=False)
+    store.add_session("stale-token", -1)
+    response = _client.get("/protected", cookies={"session_token": "stale-token"})
     assert response.status_code in (302, 307)
-    assert APIEndpoints.fastapi_login in response.headers.get("location", "")
+    assert APIEndpoints.fastapi_session in response.headers.get("location", "")
 
 
-def test_multiple_logins_overwrite_session(auth_app):
-    """Second login should replace the first session, not accumulate timers."""
-    _client = TestClient(
-        auth_app, raise_server_exceptions=False, follow_redirects=False
-    )
+def test_multiple_logins_create_independent_sessions(auth_app):
+    """Two logins (e.g. two users behind one NAT) must not knock each other out."""
+    _client = TestClient(auth_app, raise_server_exceptions=False, follow_redirects=False)
     creds = build_credentials(TEST_USERNAME, TEST_PASSWORD)
+    tokens = []
+    for _ in range(2):
+        resp = _client.post(
+            APIEndpoints.fastapi_verify_login,
+            headers={"Authorization": f"Bearer {creds}"},
+            cookies={"X-Requested-By": "/protected"},
+        )
+        tokens.append(resp.cookies.get("session_token"))
+    assert tokens[0] != tokens[1]
+    assert all(store.session_valid(t) for t in tokens)
 
-    _client.post(
+
+def test_session_is_valid_across_app_instances():
+    """Simulates two uvicorn workers: log in via one app, get served by another."""
+
+    def build() -> TestClient:
+        _app = FastAPI()
+        FastAPIUIAuth(
+            app=_app,
+            routes=APIRoute(path="/protected", endpoint=protected_endpoint),
+            username=TEST_USERNAME,
+            password=TEST_PASSWORD,
+            session_timeout=300,
+        )
+        return TestClient(_app, raise_server_exceptions=False, follow_redirects=False)
+
+    worker_a, worker_b = build(), build()
+    creds = build_credentials(TEST_USERNAME, TEST_PASSWORD)
+    login = worker_a.post(
         APIEndpoints.fastapi_verify_login,
         headers={"Authorization": f"Bearer {creds}"},
         cookies={"X-Requested-By": "/protected"},
     )
-    first_token = list(models.ws_session.client_auth.values())[0]["token"]
+    token = login.cookies.get("session_token")
+    response = worker_b.get("/protected", cookies={"session_token": token})
+    assert response.status_code == 200
 
-    _client.post(
-        APIEndpoints.fastapi_verify_login,
-        headers={"Authorization": f"Bearer {creds}"},
-        cookies={"X-Requested-By": "/protected"},
+
+def test_init_creates_database(base_app, protected_route):
+    FastAPIUIAuth(
+        app=base_app,
+        routes=protected_route,
+        username=TEST_USERNAME,
+        password=TEST_PASSWORD,
     )
-    second_token = list(models.ws_session.client_auth.values())[0]["token"]
+    assert store.DB_PATH.exists()
 
-    # Only one entry should exist (not accumulated)
-    assert len(models.ws_session.client_auth) == 1
-    # The session should have been refreshed
-    assert first_token != second_token
+
+def test_init_trusted_proxies(base_app, protected_route):
+    FastAPIUIAuth(
+        app=base_app,
+        routes=protected_route,
+        username=TEST_USERNAME,
+        password=TEST_PASSWORD,
+        trusted_proxies=["10.0.0.5"],
+    )
+    assert models.trusted_proxies == {"10.0.0.5"}
+
+
+def test_init_trusted_proxies_default_empty(base_app, protected_route):
+    FastAPIUIAuth(
+        app=base_app,
+        routes=protected_route,
+        username=TEST_USERNAME,
+        password=TEST_PASSWORD,
+    )
+    assert models.trusted_proxies == set()

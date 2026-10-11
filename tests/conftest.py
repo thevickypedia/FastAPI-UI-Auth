@@ -8,7 +8,7 @@ from fastapi.routing import APIRoute
 from fastapi.requests import Request
 from starlette.testclient import TestClient
 
-from uiauth import models, secure
+from uiauth import models, secure, store
 
 TEST_USERNAME = "testuser"
 TEST_PASSWORD = "testpass"
@@ -26,31 +26,39 @@ def build_credentials(username: str, password: str, timestamp: str = None) -> st
 
 
 def make_mock_request(
-    cookies: dict = None, path: str = "/test", host: str = "127.0.0.1"
+    cookies: dict = None,
+    path: str = "/test",
+    host: str = "127.0.0.1",
+    headers: dict = None,
 ) -> SimpleNamespace:
-    """Create a minimal mock Request for unit testing utils directly.
-
-    Uses SimpleNamespace instead of MagicMock(spec=Request) because Request
-    inherits from Mapping (via HTTPConnection), which gives MagicMock a __len__
-    returning 0, making it falsy and breaking `if api_request:` checks.
-    """
+    """Minimal mock Request (SimpleNamespace, since Request inherits Mapping and MagicMock would be falsy)."""
     return SimpleNamespace(
         cookies=cookies or {},
         url=SimpleNamespace(path=path),
         client=SimpleNamespace(host=host),
+        headers=headers or {},
     )
 
 
+def failure_count(key: str) -> int:
+    """Failed-login count currently stored for a client key."""
+    with store._connect() as conn:
+        row = conn.execute(
+            "SELECT count FROM failures WHERE key = ?", (key,)
+        ).fetchone()
+    return row[0] if row else 0
+
+
 @pytest.fixture(autouse=True)
-def reset_state():
-    """Reset all shared module-level state between tests."""
-    models.ws_session.client_auth.clear()
-    models.ws_session.invalid.clear()
+def reset_state(tmp_path, monkeypatch):
+    """Isolate every test with a fresh SQLite file and reset module-level state."""
+    monkeypatch.setattr(store, "DB_PATH", tmp_path / "fastapi_ui_auth.db")
+    store.init()
+    models.trusted_proxies = set()
     models.fallback.path = "/"
     models.fallback.button = "LOGIN"
     yield
-    models.ws_session.client_auth.clear()
-    models.ws_session.invalid.clear()
+    models.trusted_proxies = set()
 
 
 @pytest.fixture
@@ -66,7 +74,7 @@ def test_app():
         routes=APIRoute(path="/protected", endpoint=protected),
         username=TEST_USERNAME,
         password=TEST_PASSWORD,
-        timeout=300,
+        session_timeout=300,
     )
     return _app
 

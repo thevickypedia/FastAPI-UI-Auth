@@ -50,12 +50,6 @@ def test_env_loader_kwargs_over_env(monkeypatch):
     assert env.password == "kwpass"
 
 
-def test_ws_session_defaults():
-    session = models.WSSession()
-    assert session.client_auth == {}
-    assert session.invalid == {}
-
-
 def test_fallback_defaults():
     fallback = models.Fallback()
     assert fallback.button == "LOGIN"
