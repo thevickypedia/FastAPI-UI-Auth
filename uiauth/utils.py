@@ -1,5 +1,4 @@
 import secrets
-import time
 from typing import List, NoReturn
 
 from fastapi import status
@@ -9,21 +8,36 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.websockets import WebSocket
 
-from uiauth import enums, logger, models, secure
+from uiauth import enums, logger, models, secure, store
+
+
+def client_ip(request: Request | WebSocket) -> str:
+    """Resolve the client IP, honoring X-Forwarded-For only when set by a trusted proxy."""
+    host = request.client.host
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded and host in models.trusted_proxies:
+        # walk from the right; the first hop that isn't a trusted proxy is the client
+        for hop in reversed([h.strip() for h in forwarded.split(",")]):
+            if hop and hop not in models.trusted_proxies:
+                return hop
+    return host
 
 
 def failed_auth_counter(request: Request) -> None:
-    """Keeps track of failed login attempts from each host and redirects if failed for 3 or more times.
-
-    Args:
-        request: Request object containing client information.
-    """
-    try:
-        models.ws_session.invalid[request.client.host] += 1
-    except KeyError:
-        models.ws_session.invalid[request.client.host] = 1
-    if models.ws_session.invalid[request.client.host] >= 3:
+    """Track failed logins per client IP (shared across workers) and redirect after 3."""
+    if store.record_failure(client_ip(request)) >= 3:
         raise models.RedirectException(destination=enums.APIEndpoints.fastapi_error)
+
+
+def raise_error(request: Request) -> NoReturn:
+    """Raises a 401 Unauthorized error in case of bad credentials."""
+    failed_auth_counter(request)
+    logger.CUSTOM_LOGGER.error("Invalid credentials from %s", client_ip(request))
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials",
+        headers=None,
+    )
 
 
 def redirect_exception_handler(
@@ -51,24 +65,6 @@ def redirect_exception_handler(
         "X-Requested-By", exception.source, httponly=True, samesite="strict"
     )
     return response
-
-
-def raise_error(request: Request) -> NoReturn:
-    """Raises a 401 Unauthorized error in case of bad credentials.
-
-    Args:
-        request: Request object containing client information.
-    """
-    failed_auth_counter(request)
-    logger.CUSTOM_LOGGER.error(
-        "Invalid credentials: %d",
-        models.ws_session.invalid[request.client.host],
-    )
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid credentials",
-        headers=None,
-    )
 
 
 def extract_credentials(authorization: HTTPAuthorizationCredentials) -> List[str]:
@@ -110,7 +106,7 @@ def verify_login(
         hex_user = secure.hex_encode(models.env.username)
         hex_pass = secure.hex_encode(models.env.password)
     else:
-        logger.CUSTOM_LOGGER.warning("User '%s' not allowed", models.env.username)
+        logger.CUSTOM_LOGGER.warning("User '%s' not allowed", username)
         raise_error(request)
     message = f"{hex_user}{hex_pass}{timestamp}"
     expected_signature = secure.calculate_hash(message)
@@ -122,7 +118,7 @@ def verify_login(
             if not secure.verify_totp(token=models.env.totp_token, otp=otp):
                 logger.CUSTOM_LOGGER.warning("Invalid TOTP token provided")
                 raise_error(request)
-        models.ws_session.invalid[request.client.host] = 0
+        store.reset_failures(client_ip(request))
         key = secrets.token_urlsafe(64)
         return key
     raise_error(request)
@@ -132,69 +128,48 @@ def verify_login(
 def verify_session(
     api_request: Request = None, api_websocket: WebSocket = None
 ) -> None:
-    """Check if the session is still valid.
-
-    Args:
-        api_request: Request containing client information.
-        api_websocket: WebSocket connection object.
+    """Check the session cookie against the shared store.
 
     Raises:
-        HTTPException: If the session is invalid or expired.
+        RedirectException: If the session is missing, invalid or expired.
     """
-    if api_request:
-        request = api_request
-    elif api_websocket:
-        request = api_websocket
-    else:
+    request = api_request if api_request is not None else api_websocket
+    if request is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Request or WebSocket connection is required for session check.",
         )
     session_token = request.cookies.get("session_token")
-    stored = models.ws_session.client_auth.get(request.client.host, {})
-    if (
-        stored.get("token")
-        and session_token
-        and secrets.compare_digest(session_token, stored["token"])
-    ):
-        if time.time() < stored["expires_at"]:
-            logger.CUSTOM_LOGGER.debug(
-                "Session is valid for host: %s; requesting: %s",
-                request.client.host,
-                request.url.path,
-            )
-            return
-        models.ws_session.client_auth.pop(request.client.host, None)
+    if session_token and store.session_valid(session_token):
+        logger.CUSTOM_LOGGER.debug("Session is valid; requesting: %s", request.url.path)
+        return
+    if not session_token:
         logger.CUSTOM_LOGGER.warning(
-            "Session expired for host: %s; requesting: %s",
-            request.client.host,
+            "No session cookie for host: %s; requesting: %s",
+            client_ip(request),
             request.url.path,
         )
         raise models.RedirectException(
             source=request.url.path,
             destination=enums.APIEndpoints.fastapi_login,
         )
-    elif not session_token:
-        logger.CUSTOM_LOGGER.warning(
-            "Session is invalid or expired for host: %s; requesting: %s",
-            request.client.host,
-            request.url.path,
-        )
-        raise models.RedirectException(
-            source=request.url.path,
-            destination=enums.APIEndpoints.fastapi_login,
-        )
-    else:
-        logger.CUSTOM_LOGGER.warning(
-            "Session token mismatch for host: %s. Expected: %s, Received: %s",
-            request.client.host,
-            stored.get("token", "None"),
-            session_token,
-        )
-        raise models.RedirectException(
-            source=request.url.path,
-            destination=enums.APIEndpoints.fastapi_session,
-        )
+    # cookie present but unknown/expired in the store (tokens are never logged)
+    logger.CUSTOM_LOGGER.warning(
+        "Invalid or expired session for host: %s; requesting: %s",
+        client_ip(request),
+        request.url.path,
+    )
+    raise models.RedirectException(
+        source=request.url.path,
+        destination=enums.APIEndpoints.fastapi_session,
+    )
+
+
+def clear_session(token: str | None) -> None:
+    """Revoke a session server-side."""
+    if token:
+        store.delete_session(token)
+        logger.CUSTOM_LOGGER.info("Session revoked")
 
 
 def deauthorize(response: HTMLResponse) -> HTMLResponse:
@@ -211,16 +186,3 @@ def deauthorize(response: HTMLResponse) -> HTMLResponse:
     response.headers["Authorization"] = ""
     response.delete_cookie("session_token")
     return response
-
-
-def clear_session(host: str) -> None:
-    """Clear the session for the given host.
-
-    Args:
-        host: Host header from the request.
-    """
-    if models.ws_session.client_auth.get(host):
-        models.ws_session.client_auth.pop(host)
-        logger.CUSTOM_LOGGER.info("Session cleared for host: %s", host)
-    else:
-        logger.CUSTOM_LOGGER.warning("No session found for host: %s", host)

@@ -1,6 +1,5 @@
 import inspect
 import logging
-import time
 import warnings
 from typing import Dict, List
 
@@ -8,7 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from uiauth import endpoints, enums, logger, models, utils
+from uiauth import endpoints, enums, logger, models, store, utils
 
 BEARER_AUTH = HTTPBearer()
 
@@ -31,6 +30,7 @@ class FastAPIUIAuth:
         session_timeout: int = 300,
         fallback: models.Fallback | None = None,
         custom_logger: logging.Logger | None = None,
+        trusted_proxies: List[str] | None = None,
     ):
         """Initialize the APIAuthenticator with the FastAPI app and secure function.
 
@@ -43,13 +43,14 @@ class FastAPIUIAuth:
             session_timeout: Session timeout in seconds, default is 300 seconds (5 minutes).
             fallback: Fallback configuration for redirection, that takes a 'button' and 'path' as arguments.
             custom_logger: Custom logger instance, defaults to the custom logger.
+            trusted_proxies: IPs of reverse proxies whose X-Forwarded-For header can be trusted.
         """
         # TODO:
         #   1. Add a reset option in the UI to refresh page after cookie expires or session becomes invalid
         #   2. Add support for multiple MFA methods (email, Telegram, etc.) and allow create models for it
         assert (
             isinstance(session_timeout, int) and 29 < session_timeout < 86_401
-        ), "Timeout must be an integer between 30 seconds and 24 hours (86_400 seconds)"
+        ), "'session_timeout' must be an integer between 30 seconds and 24 hours (86_400 seconds)"
         models.env = models.env_loader(
             username=username, password=password, totp_token=totp_token
         )
@@ -93,6 +94,8 @@ class FastAPIUIAuth:
             logger.CUSTOM_LOGGER = custom_logger
         self.session_timeout = session_timeout
 
+        models.trusted_proxies = set(trusted_proxies or [])
+        store.init()
         self._secure()
         logger.CUSTOM_LOGGER.debug("Endpoints registered: %s", len(self.routes))
         if not models.env.totp_token:
@@ -133,10 +136,7 @@ class FastAPIUIAuth:
                 samesite="strict",
                 max_age=self.session_timeout,
             )
-            models.ws_session.client_auth[request.client.host] = {
-                "token": session_token,
-                "expires_at": time.time() + self.session_timeout,
-            }
+            store.add_session(session_token, self.session_timeout)
             response.delete_cookie(key="X-Requested-By")
             return {"redirect_url": destination}
         raise HTTPException(

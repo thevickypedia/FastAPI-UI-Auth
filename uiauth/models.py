@@ -69,17 +69,6 @@ def env_loader(**kwargs) -> EnvConfig:
 env = EnvConfig
 
 
-class WSSession(BaseModel):
-    """Object to store websocket session information.
-
-    >>> WSSession
-
-    """
-
-    invalid: Dict[str, int] = Field(default_factory=dict)
-    client_auth: Dict[str, Dict[str, str | int]] = Field(default_factory=dict)
-
-
 class Fallback(BaseModel):
     """Object to store fallback information.
 
@@ -120,5 +109,5 @@ class RedirectException(Exception):
         self.destination = destination
 
 
-ws_session = WSSession()
+trusted_proxies: set = set()
 fallback = Fallback

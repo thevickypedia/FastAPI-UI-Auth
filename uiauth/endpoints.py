@@ -65,6 +65,7 @@ def logout(request: Request) -> HTMLResponse:
     except (models.RedirectException, HTTPException):
         logger.CUSTOM_LOGGER.warning("Invalid session")
         return session(request)
+    utils.clear_session(request.cookies.get("session_token"))
     return utils.deauthorize(
         models.templates.TemplateResponse(
             name="logout.html",
