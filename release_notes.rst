@@ -1,6 +1,14 @@
 Release Notes
 =============
 
+v0.5.0 (10/13/2026)
+-------------------
+- `81d4dc5 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/81d4dc528a675b277f1c0264c9d5b7ee5be316e2>`_ chore: Release ``v0.5.0``
+- `26f45f6 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/26f45f6c1513fd7812efd4ab0cd24b3547969565>`_ perf: Check all kwargs before resolving env vars
+- `84b22bd <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/84b22bd9bb334ac80e9b271b6428d6eedec9d262>`_ test: Update unit tests for DB session storage
+- `d916614 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/d91661415e2a79b41c6dec765856337abe014f6b>`_ feat: Support multiple workers and convert project to apply stateless auth checks over in-memory
+- `19cff1b <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/19cff1bfe874276bab1408e25849ab2f19e66e1f>`_ Update release notes
+
 v0.4.1 (08/31/2026)
 -------------------
 - `174df43 <https://github.com/thevickypedia/FastAPI-UI-Auth/commit/174df43ef7cfddb3c0aff0a95b9a15e79a46ebcb>`_ chore: Release ``v0.4.1``
